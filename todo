@@ -1,0 +1,13 @@
+create color theme
+
+redirect home page to signin / messages page depending on if user is logged in or not for now
+    later create visitor page
+
+on signin page, create link for signup "if you don't have an account"
+    on click, redirect to signup page
+
+research authentication, JWT, and sessions, how to persist user login
+
+when they load messages page, fetch account data, connect to socket, load groups/dms, etc.
+
+create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages

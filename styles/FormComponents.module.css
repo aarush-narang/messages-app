@@ -1,0 +1,66 @@
+/* main inputs */
+.input {
+    font-family: Urbanist;
+    font-size: 130%;
+
+    background-color: var(--secondary-color);
+    color: var(--font-color);
+    border: none;
+    outline: none;
+
+    margin: 3px;
+    padding: 0.8em;
+    border-radius: 5px;
+    transition: 200ms ease;
+
+    min-width: 170px;
+    width: 100%;
+    max-width: 500px;
+    height: 60px;
+}
+.input::placeholder {
+    color: var(--font-color);
+}
+.input:focus {
+    /* border: 2px solid #00bcd4; */
+}
+
+/* view password toggle */
+.pass_view {
+    cursor: pointer;
+    text-decoration: underline;
+    user-select: none;
+    font-size: 80%;
+    margin-left: -48px;
+    color: var(--font-color);
+}
+
+/* submit button */
+.submit {
+    cursor: pointer;
+
+    font-family: Urbanist;
+    color: black;
+
+    border: none;
+    border-radius: 6px;
+    outline: none;
+    margin: 3px;
+    padding: 0.8em;
+
+    background-color: #9cbd95;
+    transition: 150ms ease;
+
+    min-width: 170px;
+    width: 60%;
+    max-width: 500px;
+    height: 60px;
+}
+.submit:hover {
+    background-color: #a5ce9d;
+    transform: scale(0.99);
+}
+.submit:active {
+    background-color: #afdaa7;
+    transform: scale(0.97);
+}

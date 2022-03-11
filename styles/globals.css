@@ -1,16 +1,46 @@
 @import url('https://fonts.googleapis.com/css2?family=Urbanist&display=swap');
+
+/* theme colors */
+/* 
+https://coolors.co/0e3b43-22454b-354f52-6f908e-a3bbad-002e2c-357266-84a98c
+*/
+:root {
+    --primary-color: #0E3B43;
+    --secondary-color: #285158;
+
+    --cyan-tone-light: #88bbb7;
+    --cyan-tone-dark: #609793;
+    --blue-tone-dark: #365d61;
+
+    --green-tone-very-light: #A3BBAD;
+    --green-tone-light: #84A98C;
+    --green-tone-dark: #357226;
+    --green-tone-very-dark: #002E2C;
+    
+    --color-correct-light: #6CCE93;
+    --color-correct-dark: #4CA26F;
+    --color-warning-light: #FFF5B3;
+    --color-warning-dark: #F3E588;
+    --color-error-light: #f7c59f;
+    --color-error-dark: #b37160;
+
+    --font-color: var(--cyan-tone-light);
+    --font-color-secondary: var(--cyan-tone-dark);
+}
+
 html,
 body {
-  padding: 0;
-  margin: 0;
-  font-family: Urbanist, sans-serif, Arial, Helvetica, sans-serif;
+    padding: 0;
+    margin: 0;
+    background-color: var(--primary-color);
+    font-family: Urbanist, sans-serif, Arial, Helvetica, sans-serif;
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+    color: inherit;
+    text-decoration: none;
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
