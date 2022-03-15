@@ -25,16 +25,14 @@ export default function Home({ data }) {
     if (!data.account_status) {
         return (
             <>
-                <Header/>
+                <Header title={"Messages"} signedIn={false}/>
                 <div className={styles.container}>
                     <Head>
                         <title>Messages</title>
                     </Head>
                     <div style={tempStylesMessage}>
-                        {data.message}
-                        <a style={tempStylesHref} href="/account/signin">Sign In</a>
-                    </div>
 
+                    </div>
                 </div>
             </>
 

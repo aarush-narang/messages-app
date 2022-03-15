@@ -57,7 +57,7 @@ export function PasswordInput({ name, minWidth, width, maxWidth, minHeight, heig
     )
 }
 
-export function Submit({ name, innerText, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
+export function Button({ type, name, innerText, className, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
     const submitStyles = {
         minWidth,
         width,
@@ -68,7 +68,7 @@ export function Submit({ name, innerText, minWidth, width, maxWidth, minHeight, 
         ...props,
     }
     return (
-        <button className={styles.submit} style={submitStyles} type="submit" name={name}>{innerText}</button>
+        <button className={className} style={submitStyles} type="submit" name={name} onClick={props.onClick}>{innerText}</button>
     )
 }
 

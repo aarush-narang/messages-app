@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
 import styles from "../../styles/SignIn.module.css";
-import { PasswordInput, Submit, Input, ErrorMessage } from '../components/formComponents'
+import { PasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
 import Cookies from 'js-cookie'
 import { csrf } from "../../lib/middleware";
 
@@ -70,7 +70,7 @@ export default function SignIn({ csrfToken }) {
                         <p>Don't have an account? <a href="/account/signup" className={styles.link}>Sign Up</a></p>
                         <p>Forgot your password? <a href="/account/forgot" className={styles.link}>Reset Password</a></p>
                     </div>
-                    <Submit name={"signin-submit"} innerText={'Sign In'} minWidth={'170px'} width={'60%'} maxWidth={'500px'} height={'60px'} />
+                    <Button type={'submit'} name={"signin-submit"} innerText={'Sign In'} className={styles.submit} />
                 </form>
                 {/* add other ways to authenticate (like google) */}
             </div>
