@@ -1,5 +1,6 @@
 js-cookie to access cookies client-side
 
+fetch server side data
 export async function getServerSideProps() {
     const cookie = Cookies.get('token')
     // Fetch data from external API
@@ -8,4 +9,12 @@ export async function getServerSideProps() {
 
     // Pass data to the page via props
     return { props: { data: 'none' } }
+}
+
+redirect:
+return {
+    redirect: {
+        destination: '/account/signin',
+        permanent: false,
+    }
 }
