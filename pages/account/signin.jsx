@@ -1,50 +1,87 @@
 import Head from "next/head";
+import { useState, useEffect } from "react";
 import styles from "../../styles/SignIn.module.css";
-import { PasswordInput, Submit, Input } from '../components/formComponents'
+import { PasswordInput, Submit, Input, ErrorMessage } from '../components/formComponents'
+import Cookies from 'js-cookie'
+import { csrf } from "../../lib/middleware";
 
-export default function SignIn({ data }) {
+export default function SignIn({ csrfToken }) {
+    const [error, setError] = useState('');
+    const changeDataState = (el, state) => {
+        el.setAttribute('data-state', state);
+        el.addEventListener('input', () => {
+            el.removeAttribute('data-state');
+            setError('')
+        })
+    }
     return (
         <div>
             <Head>
                 <title>Sign In</title>
             </Head>
             <div className={styles.form_container}>
-                {/* warning if an error happens that makes border (dark) and background (light) of inputs red */}
                 <form className={styles.form} onSubmit={
                     async (e) => {
                         e.preventDefault();
-                        const res = await fetch('/api/v1/user/signin', {
+                        const formData = new FormData(e.target);
+                        const data = {};
+                        for (let name of formData.keys()) {
+                            data[name] = formData.get(name);
+                        }
+
+                        if (!data.email) {
+                            setError('Email is invalid');
+                            return changeDataState(e.target[0], 'error');
+                        } else if (!data.password) {
+                            setError('Password is invalid');
+                            return changeDataState(e.target[1], 'error');
+                        }
+
+                        if(error.length > 0) return; // prevents submit spam and redeces db calls
+                        const res = await fetch('/api/v1/auth/account/signin', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json'
+                                'CSRF-Token': csrfToken,
                             },
-                            body: JSON.stringify({
-                                email: e.target.email.value,
-                                password: e.target.password.value
-                            })
+                            body: JSON.stringify(data)
                         }).then(res => res.json()).catch(console.error)
+                        if (res.status === 'INVALID_EMAIL') {
+                            setError('Email is invalid');
+                            return changeDataState(e.target[0], 'error');
+                        } else if (res.status === 'NOT_FOUND') {
+                            setError('Email or password is incorrect');
+                            changeDataState(e.target[0], 'error');
+                            changeDataState(e.target[1], 'error');
+                            return
+                        } else if (res.status === 'SUCCESS') {
+                            Cookies.set('token', res.token, { secure: true, sameSite: 'strict' });
+                            window.location.href = '/'
+                            return
+                        }
                     }
                 }>
                     <h1 className={styles.form_title}>Sign In</h1>
                     <div className={styles.inputs_container}>
-                        <Input minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'}/>
-                        <PasswordInput minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'}/>
+                        <Input placeholder={"Email"} name={"email"} minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
+                        <PasswordInput name={"password"} minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
+                        <ErrorMessage error={error} />
                     </div>
                     <div className={styles.form_helpers}>
                         <p>Don't have an account? <a href="/account/signup" className={styles.link}>Sign Up</a></p>
                         <p>Forgot your password? <a href="/account/forgot" className={styles.link}>Reset Password</a></p>
                     </div>
-                    <Submit innerText={'Sign In'} minWidth={'170px'} width={'60%'} maxWidth={'500px'} height={'60px'}/>
+                    <Submit name={"signin-submit"} innerText={'Sign In'} minWidth={'170px'} width={'60%'} maxWidth={'500px'} height={'60px'} />
                 </form>
+                {/* add other ways to authenticate (like google) */}
             </div>
         </div>
     );
 }
 
-export async function getServerSideProps() {
+export async function getServerSideProps(context) {
+    const { req, res } = context
+    await csrf(req, res)
     return {
-        props: {
-            message: 'Hello World'
-        }
+        props: { csrfToken: req.csrfToken() },
     }
 }

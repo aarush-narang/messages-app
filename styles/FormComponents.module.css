@@ -5,8 +5,6 @@
 
     background-color: var(--secondary-color);
     color: var(--font-color);
-    /* add border and when they focus on 
-    the input, change the border color */
     border: 2px solid var(--cyan-tone-dark);
     outline: none;
 
@@ -15,11 +13,51 @@
     border-radius: 5px;
     transition: 200ms ease;
 }
+
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus,
+.input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--secondary-color) inset !important;
+    -webkit-text-fill-color: var(--font-color) !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
 .input::placeholder {
     color: var(--font-color);
 }
+
 .input:focus {
     border: 2px solid var(--cyan-tone-light);
+}
+
+.input[data-state="error"] {
+    -webkit-box-shadow: 0 0 0 1000px var(--color-error-light) inset !important;
+    -webkit-text-fill-color: var(--color-error-dark) !important;
+
+    background-color: var(--color-error-light) !important;
+    border: 2px solid var(--color-error-dark);
+    color: var(--color-error-dark);
+}
+.input[data-state="error"] + a {
+    color: var(--color-error-dark);
+}
+
+.input[data-state="warning"] {
+    -webkit-box-shadow: 0 0 0 1000px var(--color-warning-light) inset !important;
+    -webkit-text-fill-color: var(--color-warning-dark) !important;
+
+    background-color: var(--color-warning-light) !important;
+    border: 2px solid var(--color-warning-dark);
+    color: var(--color-warning-dark);
+}
+.input[data-state="warning"] + a {
+    color: var(--color-warning-dark);
+}
+
+.input[data-state="error"]::placeholder,
+.input[data-state="warning"]::placeholder {
+    color: var(--color-error-dark);
 }
 
 /* view password toggle */
@@ -37,6 +75,7 @@
     cursor: pointer;
 
     font-family: Urbanist;
+    font-size: 100%;
     color: black;
 
     border: none;
@@ -48,11 +87,21 @@
     background-color: #9cbd95;
     transition: 150ms ease;
 }
+
 .submit:hover {
     background-color: #a5ce9d;
     transform: scale(0.99);
 }
+
 .submit:active {
     background-color: #afdaa7;
     transform: scale(0.97);
+}
+
+.error {
+    color: var(--color-error-dark);
+    font-size: 90%;
+    font-weight: bold;
+    margin: 3px 0 5px 0;
+    text-align: center;
 }

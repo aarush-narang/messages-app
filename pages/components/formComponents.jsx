@@ -2,8 +2,7 @@ import styles from "../../styles/FormComponents.module.css";
 import ErrorPage from 'next/error'
 import { useState } from "react";
 
-// for all input components, add dynamic ability to change width, height, font size, etc.
-export function Input({ minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
+export function Input({ placeholder, name, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
     const inputStyles = {
         minWidth,
         width,
@@ -11,28 +10,28 @@ export function Input({ minWidth, width, maxWidth, minHeight, height, maxHeight,
         minHeight,
         height,
         maxHeight,
+        ...props,
     }
     return (
         <div>
             <input
                 className={styles.input}
                 type="text"
-                placeholder="Email"
+                placeholder={placeholder}
                 autoComplete="false"
                 autoCapitalize="false"
                 autoCorrect="false"
-                autoSave="false"
                 style={inputStyles}
+                name={name}
             />
         </div>
     )
 }
 
-export function PasswordInput({ minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
+export function PasswordInput({ name, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
     const [passView, setPassView] = useState('password');
     const [passText, setPassText] = useState('View');
-    function handlePassView(e) {
-        e.preventDefault()
+    function handlePassView() {
         if (passView === 'password') {
             setPassView('text');
             setPassText('Hide');
@@ -48,16 +47,17 @@ export function PasswordInput({ minWidth, width, maxWidth, minHeight, height, ma
         minHeight,
         height,
         maxHeight,
+        ...props,
     }
     return (
         <div>
-            <input className={styles.input} style={passStyles} type={passView} placeholder="Password" />
+            <input className={styles.input} style={passStyles} type={passView} placeholder="Password" name={name}/>
             <a className={styles.pass_view} onClick={handlePassView}>{passText}</a>
         </div>
     )
 }
 
-export function Submit({ innerText, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
+export function Submit({ name, innerText, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
     const submitStyles = {
         minWidth,
         width,
@@ -65,9 +65,20 @@ export function Submit({ innerText, minWidth, width, maxWidth, minHeight, height
         minHeight,
         height,
         maxHeight,
+        ...props,
     }
     return (
-        <button className={styles.submit} style={submitStyles} type="submit">{innerText}</button>
+        <button className={styles.submit} style={submitStyles} type="submit" name={name}>{innerText}</button>
+    )
+}
+
+export function ErrorMessage({ error, ...props }) {
+    const errorStyles = {
+        ...props,
+    }
+
+    return (
+        <p className={styles.error} style={errorStyles}>{error}</p>
     )
 }
 
