@@ -25,7 +25,7 @@ export default function Home({ data }) {
     if (!data.account_status) {
         return (
             <>
-                <Header title={"Messages"} signedIn={false}/>
+                <Header title={"Messages"} signedIn={false} />
                 <div className={styles.container}>
                     <Head>
                         <title>Messages</title>
@@ -96,12 +96,19 @@ export async function getServerSideProps(ctx) {
             }
         }
     } else {
-        const res = await get('http://localhost:3000/api/v1/auth/user/user', cookies).catch(err => {
+        const res = await get('http://localhost:3000/api/v1/auth/user/user', cookies).catch(async err => {
             if (err) {
-                if(err.message === 'Token Expired') {
+                if (err.message === 'Token Expired') {
                     await get('http://localhost:3000/api/v1/auth/account/token', cookies).catch(err => {
-                        
+
                     })
+                    return
+                } else {
+                    ctx.res.setHeader(
+                        "Set-Cookie", [
+                        `accessToken=deleted; Max-Age=0`,
+                        `refreshToken=deleted; Max-Age=0`]
+                    );
                 }
                 return {
                     redirect: {

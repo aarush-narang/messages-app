@@ -44,7 +44,7 @@ export default function SignIn({ csrfToken }) {
                                 'CSRF-Token': csrfToken,
                             },
                             body: JSON.stringify(data)
-                        }).then(res => res.json()).catch(console.error)
+                        }).then(res => res.json()).catch(err => console.log(err))
                         if (res.status === 'INVALID_EMAIL') {
                             setError('Email is invalid');
                             return changeDataState(e.target[0], 'error');
@@ -55,6 +55,7 @@ export default function SignIn({ csrfToken }) {
                             return
                         } else if (res.status === 'SUCCESS') {
                             Cookies.set('accessToken', res.accessToken, { secure: true, sameSite: 'strict' });
+                            Cookies.set('refreshToken', res.refreshToken, { secure: true, sameSite: 'strict' });
                             window.location.href = '/'
                             return
                         }

@@ -38,7 +38,6 @@ async function SignInHandler(req, res) {
     }
 
     const user = await QueryUser({ email, password });
-
     if (!user) {
         return res.status(200).json({
             status: 'NOT_FOUND'

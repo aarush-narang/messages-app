@@ -6,6 +6,7 @@ import { generateAccessToken } from "../../../../../lib/helpers/jwt-middleware";
 const { serverRuntimeConfig } = getConfig();
 
 function handleAccessToken(req, res) {
+    console.log(req.body, req.headers)
     const refreshToken = req.body.refreshToken
     if (!refreshToken || refreshToken == null) return res.status(401).send('Unauthorized')
     if (!refreshTokens.includes(refreshToken)) return res.status(403).send('Forbidden')
