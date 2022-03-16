@@ -86,7 +86,7 @@ export async function getServerSideProps(ctx) {
     const token = ctx.req.headers.cookie;
     const cookies = cookie.parse(token ? token : '');
 
-    if (!cookies.token) { // if token is not found, user is not logged in
+    if (!cookies.accessToken) { // if token is not found, user is not logged in
         return {
             props: {
                 data: {
@@ -98,7 +98,11 @@ export async function getServerSideProps(ctx) {
     } else {
         const res = await get('http://localhost:3000/api/v1/auth/user/user', cookies).catch(err => {
             if (err) {
-                ctx.res.setHeader('Set-Cookie', ['token=; Max-Age=0']);
+                if(err.message === 'Token Expired') {
+                    await get('http://localhost:3000/api/v1/auth/account/token', cookies).catch(err => {
+                        
+                    })
+                }
                 return {
                     redirect: {
                         destination: '/account/signin',

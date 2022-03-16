@@ -1,6 +1,5 @@
 import { QueryUser } from "../../../../../lib/mongo"
 import { apiHandler } from "../../../../../lib/helpers/api-handler"
-import { parseJwt } from "../../../../../lib/util"
 
 /**
  * 
@@ -10,12 +9,9 @@ import { parseJwt } from "../../../../../lib/util"
 async function userInfoHandler(req, res) {
     if(req.method !== 'GET') return res.status(404).send()
 
-    const auth = req.headers.authorization
-    const token = auth.split(' ')[1]
-    const extToken = parseJwt(token)
-    
+    const extToken = req.user
     // get user info from the token passed in the cookeis in the request
-    const user = await QueryUser({ token: extToken.sub })
+    const user = await QueryUser({ token: extToken.sub.token })
 
     res.status(200).send({ messages: user.messages });
 }

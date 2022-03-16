@@ -5,8 +5,8 @@ import {
     apiHandler
 } from '../../../../../lib/helpers/api-handler'
 
-import jwt from 'jsonwebtoken'
 import getConfig from 'next/config';
+import { generateAccessToken, generateRefreshToken } from "../../../../../lib/helpers/jwt-middleware";
 const { serverRuntimeConfig } = getConfig();
 
 /** 
@@ -17,7 +17,7 @@ const validateEmail = (email) => {
     const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
     return email.match(email_regex)
 }
-
+export let refreshTokens = []
 /**
  * @param {Request} req 
  * @param {Response} res 
@@ -37,7 +37,7 @@ async function SignInHandler(req, res) {
         })
     }
 
-    const user = await QueryUser(email, password);
+    const user = await QueryUser({ email, password });
 
     if (!user) {
         return res.status(200).json({
@@ -45,15 +45,16 @@ async function SignInHandler(req, res) {
         })
     }
 
-    // create a jwt token that is valid for 7 days
-    const jwtToken = jwt.sign({ sub: user.token }, serverRuntimeConfig.secret, { expiresIn: '7d', algorithm: 'HS256' });
-
+    const accessToken = generateAccessToken({ token: user.token, username: user.username, uid: user.uid })
+    const refreshToken = generateRefreshToken({ token: user.token, username: user.username, uid: user.uid })
+    refreshTokens.find(token => token === refreshToken) ? null : refreshTokens.push(refreshToken) // temporary solution
     // return basic user details and token
     return res.send({
         status: 'SUCCESS',
         id: user.uid,
         username: user.username,
-        token: jwtToken,
+        accessToken,
+        refreshToken
         // also send other user info like encryption key for their messages
     });
 
