@@ -3,7 +3,10 @@ add remember me option in signin page?
 redirect home page to signin / messages page depending on if user is logged in or not for now
     later create visitor page
 
-research authentication and encryption
+research authentication
+
+use diffie hellman for encryption
+    uses private keys from both users (private and public keys are both randomly generated each time the user logs in and removed when they logout)
 
 when they load messages page, fetch account data, connect to socket, load groups/dms, etc.
 
@@ -13,3 +16,4 @@ https://getstream.io/blog/web-crypto-api-chat/
 https://crypto.stackexchange.com/questions/35530/where-and-how-to-store-private-keys-in-web-applications-for-private-messaging-wi
 https://stackoverflow.com/questions/28364430/best-way-to-store-private-crypto-key-in-browser
 https://www.youtube.com/watch?v=mbsmsi7l3r4&ab_channel=WebDevSimplified
+https://www.youtube.com/watch?v=M-0qt6tdHzk&ab_channel=KhanAcademyLabs
