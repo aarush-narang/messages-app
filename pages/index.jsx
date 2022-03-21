@@ -3,8 +3,10 @@ import styles from "../styles/Home.module.css";
 import * as cookie from 'cookie'
 import { get } from '../lib/helpers/fetch-wrapper'
 import Header from "./components/header";
+import { csrf } from "../lib/middleware";
+import { fetchNewToken } from '../lib/util'
 
-export default function Home({ data }) {
+export default function Home({ data, csrfToken }) {
     const tempStylesMessage = {
         display: 'flex',
         flexDirection: 'column',
@@ -15,13 +17,7 @@ export default function Home({ data }) {
         color: "red",
         textAlign: "center",
     }
-    const tempStylesHref = {
-        fontSize: "1rem",
-        color: "red",
-        textAlign: "center",
-        textDecoration: "underline",
-        marginTop: '20px',
-    }
+
     if (!data.account_status) {
         return (
             <>
@@ -43,7 +39,7 @@ export default function Home({ data }) {
             const messages = Object.values(data.data)
             return (
                 <>
-                    <Header />
+                    <Header title={"Messages"} signedIn={true} csrfToken={csrfToken} />
                     <div className={styles.container}>
                         <Head>
                             <title>Messages</title>
@@ -77,54 +73,61 @@ export default function Home({ data }) {
                 </>
             )
         }
-
     }
 
 }
 
 export async function getServerSideProps(ctx) {
+    const { req, res } = ctx
+    // CSRF token
+    await csrf(req, res)
+    const csrfToken = req.csrfToken()
+    // Access/Refresh Tokens
     const token = ctx.req.headers.cookie;
     const cookies = cookie.parse(token ? token : '');
 
-    if (!cookies.accessToken) { // if token is not found, user is not logged in
-        return {
-            props: {
-                data: {
-                    account_status: false,
-                    data: 'You are not logged in'
+    if (cookies.accessToken) {
+        async function fetchMessages(accessToken) {
+            return await get('http://localhost:3000/api/v1/auth/user/user', { accessToken }).catch(async err => {
+                if (err) {
+                    if (err === 'Authentication Failed') { // if token is expired but exists
+                        const newToken = await fetchNewToken(cookies)
+                        ctx.res.setHeader( // set new token
+                            "Set-Cookie", [
+                            `accessToken=${newToken}; secure; SameSite=Strict`,
+                        ]);
+                        return await fetchMessages(newToken)
+                    }
+                    else if (err === 'Invalid Token') { // if token is invalid
+                        ctx.res.setHeader( // remove token from cookies (logout)
+                            "Set-Cookie", [
+                            `accessToken=deleted; Max-Age=0`,
+                            `refreshToken=deleted; Max-Age=0`]
+                        );
+                    }
+                }
+            })
+        }
+        const res = await fetchMessages(cookies.accessToken)
+        if (res) {
+            return {
+                props: { // return props here
+                    data: {
+                        account_status: true,
+                        data: res.messages
+                    },
+                    csrfToken
                 }
             }
         }
-    } else {
-        const res = await get('http://localhost:3000/api/v1/auth/user/user', cookies).catch(async err => {
-            if (err) {
-                if (err.message === 'Token Expired') {
-                    await get('http://localhost:3000/api/v1/auth/account/token', cookies).catch(err => {
+    }
 
-                    })
-                    return
-                } else {
-                    ctx.res.setHeader(
-                        "Set-Cookie", [
-                        `accessToken=deleted; Max-Age=0`,
-                        `refreshToken=deleted; Max-Age=0`]
-                    );
-                }
-                return {
-                    redirect: {
-                        destination: '/account/signin',
-                    }
-                }
-            }
-        })
-        return {
-            redirect: res.redirect,
-            props: { // return props here
-                data: {
-                    account_status: true,
-                    data: res.messages
-                }
-            }
+    return {
+        props: {
+            data: {
+                account_status: false,
+            },
+            csrfToken
         }
     }
 }

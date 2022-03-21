@@ -1,18 +1,49 @@
 import styles from '../../styles/Header.module.css'
 import { Button } from './inputComponents'
+import Cookies from 'js-cookie'
+import { fetchNewToken } from '../../lib/util'
 
-export default function Header({ title='', signedIn=false }) {
+export default function Header({ title = '', signedIn = false, csrfToken }) {
     return (
         <div className={styles.headerContainer}>
             <div></div>
             <div className={styles.headerTitle}>{title}</div>
             {
-                signedIn ?
+                signedIn ? // if signed in
                     <div className={styles.headerButtons}>
                         {/* get api route for logout */}
-                        <Button onClick={() => window.location = '/'} innerText={'Sign Out'}/>
+                        <Button onClick={async () => {
+                            async function logout() {
+                                const logoutRes = await fetch('/api/v1/auth/account/signout', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': 'Bearer ' + Cookies.get('accessToken'),
+                                        'CSRF-Token': csrfToken,
+                                    }
+                                }).catch()
+
+                                if (logoutRes.status !== 200) {
+                                    const newToken = await fetchNewToken(Cookies.get())
+                                    if (!newToken) {
+                                        Cookies.set('accessToken', 'deleted', { expires: 0 })
+                                        Cookies.set('refreshToken', 'deleted', { expires: 0 })
+                                        window.location.reload()
+                                    }
+                                    Cookies.set('accessToken', newToken, { secure: true, sameSite: 'strict' })
+                                    if (newToken) {
+                                        return logout()
+                                    }
+                                } else if(logoutRes.status === 200) {
+                                    Cookies.set('accessToken', 'deleted', { expires: 0 })
+                                    Cookies.set('refreshToken', 'deleted', { expires: 0 })
+                                    window.location.reload()
+                                }
+                            }
+
+                            await logout()
+                        }} innerText={'Sign Out'} />
                     </div>
-                    :
+                    : // if not signed in
                     <div className={styles.headerButtons}>
                         <button onClick={() => window.location = "/account/signup"} className={styles.headerButton}>
                             <a>Sign Up</a>
@@ -26,3 +57,4 @@ export default function Header({ title='', signedIn=false }) {
         </div>
     )
 }
+

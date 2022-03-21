@@ -1,12 +1,9 @@
-import {
-    QueryUser
-} from "../../../../../lib/mongo"
-import {
-    apiHandler
-} from '../../../../../lib/helpers/api-handler'
-
-import getConfig from 'next/config';
+import { QueryUser, UpdateUser } from "../../../../../lib/mongo"
+import { apiHandler } from '../../../../../lib/helpers/api-handler'
 import { generateAccessToken, generateRefreshToken } from "../../../../../lib/helpers/jwt-middleware";
+
+import crypto from 'crypto'
+import getConfig from 'next/config';
 const { serverRuntimeConfig } = getConfig();
 
 /** 
@@ -17,7 +14,7 @@ const validateEmail = (email) => {
     const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
     return email.match(email_regex)
 }
-export let refreshTokens = []
+
 /**
  * @param {Request} req 
  * @param {Response} res 
@@ -37,7 +34,7 @@ async function SignInHandler(req, res) {
         })
     }
 
-    const user = await QueryUser({ email, password });
+    const user = await QueryUser({ user: { email, password } });
     if (!user) {
         return res.status(200).json({
             status: 'NOT_FOUND'
@@ -45,8 +42,11 @@ async function SignInHandler(req, res) {
     }
 
     const accessToken = generateAccessToken({ token: user.token, username: user.username, uid: user.uid })
-    const refreshToken = generateRefreshToken({ token: user.token, username: user.username, uid: user.uid })
-    refreshTokens.find(token => token === refreshToken) ? null : refreshTokens.push(refreshToken) // temporary solution
+    const refreshToken = generateRefreshToken({ rb: crypto.randomBytes(32).toString('hex'), uid: user.uid })
+    // when user logs in, look for their current ip in previous sessions and restore it if it exists
+    const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
+    await UpdateUser({ user: { uid: user.uid }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
+
     // return basic user details and token
     return res.send({
         status: 'SUCCESS',

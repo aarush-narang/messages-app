@@ -3,14 +3,16 @@ add remember me option in signin page?
 redirect home page to signin / messages page depending on if user is logged in or not for now
     later create visitor page
 
-research authentication
-
 use diffie hellman for encryption
     uses private keys from both users (private and public keys are both randomly generated each time the user logs in and removed when they logout)
 
 when they load messages page, fetch account data, connect to socket, load groups/dms, etc.
 
 create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages
+
+store more information about refresh tokens to create a sessions panel with all open sessions and allow more than one refresh token: restore previous sessions if ip is same
+come up with ways to remove refresh tokens that are not being used (max number of sessions?)
+implement refresh tokens in jwt middleware and get rid of unauth route
 
 https://getstream.io/blog/web-crypto-api-chat/
 https://crypto.stackexchange.com/questions/35530/where-and-how-to-store-private-keys-in-web-applications-for-private-messaging-wi
