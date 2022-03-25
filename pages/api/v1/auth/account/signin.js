@@ -48,12 +48,11 @@ async function SignInHandler(req, res) {
     await UpdateUser({ user: { uid: user.uid }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
 
     // return basic user details and token
+    res.setHeader('Set-Cookie', [`accessToken=${accessToken}; HttpOnly; Path=/`, `refreshToken=${refreshToken}; HttpOnly; Path=/`]);
     return res.send({
         status: 'SUCCESS',
         id: user.uid,
         username: user.username,
-        accessToken,
-        refreshToken
         // also send other user info like encryption key for their messages
     });
 

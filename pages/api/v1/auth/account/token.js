@@ -1,8 +1,9 @@
 import { apiHandler } from "../../../../../lib/helpers/api-handler"
 
-async function handleAccessToken(req, res) {
-    console.log(req.token)
-    return res.json({ accessToken: req.token })
+function handleAccessToken(req, res) {
+    const { token } = req
+    res.setHeader('Set-Cookie', [`accessToken=${token}; HttpOnly; Path=/`]);
+    return res.json({ message: 'SUCCESS' })
 }
 
 export default apiHandler(handleAccessToken)

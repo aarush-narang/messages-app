@@ -54,8 +54,6 @@ export default function SignIn({ csrfToken }) {
                             changeDataState(e.target[1], 'error');
                             return
                         } else if (res.status === 'SUCCESS') {
-                            Cookies.set('accessToken', res.accessToken, { secure: true, sameSite: 'strict' });
-                            Cookies.set('refreshToken', res.refreshToken, { secure: true, sameSite: 'strict' });
                             window.location.href = '/'
                             return
                         }
