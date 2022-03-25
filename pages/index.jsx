@@ -92,21 +92,22 @@ export async function getServerSideProps(ctx) {
                 if (err) {
                     if (err === 'Authentication Failed') { // if token is expired but exists
                         const newToken = await fetchNewToken(cookies)
-                        ctx.res.setHeader( // set new token
-                            "Set-Cookie", [
-                            `accessToken=${newToken}; secure; SameSite=Strict`,
-                        ]);
-                        return await fetchMessages(newToken)
-                    }
+                        // console.log("newToken " + newToken)
+                        // ctx.res.setHeader( // set new token
+                        //     "Set-Cookie", [
+                        //     `accessToken=${newToken}; secure; SameSite=Strict`,
+                        // ]);
+                        // return await fetchMessages(newToken)
+                        return { "messages": { "0e338472-e610-4325-b848-b3a79bf2abcc": [{ "message": "encrypted message here", "ts": { "$numberLong": "1647237661585" }, "id": { "$numberLong": "1000000000" } }, { "message": "message 2", "ts": { "$numberLong": "1647237861585" }, "id": { "$numberLong": "1000000001" } }], "a2445ffb-c966-4a36-9b3f-f28226277d9f": [{ "message": "asdasd", "ts": { "$numberLong": "1647237661581" }, "id": { "$numberLong": "1000000002" } }, { "message": "12asdu", "ts": { "$numberLong": "1647239661585" }, "id": { "$numberLong": "1000000003" } }] }, "uid": "083f9fe7-22a1-413f-9764-1965d0ddcca5" } }
                     else if (err === 'Invalid Token') { // if token is invalid
-                        ctx.res.setHeader( // remove token from cookies (logout)
-                            "Set-Cookie", [
-                            `accessToken=deleted; Max-Age=0`,
-                            `refreshToken=deleted; Max-Age=0`]
-                        );
+                            ctx.res.setHeader( // remove token from cookies (logout)
+                                "Set-Cookie", [
+                                `accessToken=deleted; Max-Age=0`,
+                                `refreshToken=deleted; Max-Age=0`]
+                            );
+                        }
                     }
-                }
-            })
+                })
         }
         const res = await fetchMessages(cookies.accessToken)
         if (res) {
