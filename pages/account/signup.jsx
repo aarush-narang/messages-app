@@ -4,7 +4,12 @@ import styles from "../../styles/SignIn.module.css";
 import { SignUpPasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
 import { csrf } from "../../lib/middleware";
 
-export default function SignIn({ csrfToken }) {
+const validateEmail = (email) => {
+    const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+    return email.match(email_regex)
+}
+
+export default function SignUp({ csrfToken }) {
     const [error, setError] = useState('');
     const changeDataState = (el, state) => {
         if (Array.isArray(el)) {
@@ -44,15 +49,53 @@ export default function SignIn({ csrfToken }) {
                             if (entry === '' && !err) {
                                 changeDataState(e.target.elements[i], 'error');
                                 const elName = e.target.elements[i].name
+                                if (elName === 'confirm_password') return
                                 setError(`${elName.charAt(0).toUpperCase() + elName.slice(1)} is required`);
                                 err = true
                                 return
                             }
                         })
 
-                        if (data.password !== data.confirm_password) {
+                        if (data.password !== data.confirm_password && !err) {
                             setError('Passwords do not match');
                             return changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
+                        }
+                        if (!validateEmail(data.email) && !err) {
+                            setError('Email is not valid');
+                            return changeDataState(document.querySelector(`[name="email"]`), 'error');
+                        }
+                        if ((data.username.length < 5 || data.username.length > 15) && !err) {
+                            setError('Username must be between 5 and 15 characters');
+                            return changeDataState(document.querySelector(`[name="username"]`), 'error');
+                        }
+                        if (err) return
+
+                        // send data to server to create account and wait for response with user access and refresh token
+                        const res = await fetch('/api/v1/auth/account/signup', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'CSRF-Token': csrfToken
+                            },
+                            body: JSON.stringify(data)
+                        })
+                        if (res.status === 400) {
+                            const json = await res.json()
+                            if(!json.message) {
+                                changeDataState([...document.querySelectorAll(`[name]`)], 'error');
+                                return setError('Something went wrong, try again later.')
+                            } else if(json.message === 'DUPLICATE_USERNAME') {
+                                setError('Username already exists');
+                                return changeDataState(document.querySelector(`[name="username"]`), 'error');
+                            } else if(json.message === 'DUPLICATE_EMAIL') {
+                                setError('Email already exists');
+                                return changeDataState(document.querySelector(`[name="email"]`), 'error');
+                            }
+                            return
+                        }
+                        else if (res.status === 200) {
+                            const json = await res.json()
+                            console.log(json)
                         }
                     }
                 }>

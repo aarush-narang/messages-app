@@ -128,6 +128,6 @@ export function ErrorMessage({ error, ...props }) {
     )
 }
 
-export default function () {
+export function Page404() {
     return <ErrorPage statusCode={404} />
 }
