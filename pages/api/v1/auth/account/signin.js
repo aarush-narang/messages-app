@@ -48,7 +48,7 @@ async function SignInHandler(req, res) {
     await UpdateUser({ user: { uid: user.uid }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
 
     // return basic user details and token
-    res.setHeader('Set-Cookie', [`accessToken=${accessToken}; HttpOnly; Path=/`, `refreshToken=${refreshToken}; HttpOnly; Path=/`]);
+    res.setHeader('Set-Cookie', [`accessToken=${accessToken}; Path=/; SameSite`, `refreshToken=${refreshToken}; Path=/; SameSite`]);
     return res.send({
         status: 'SUCCESS',
         id: user.uid,

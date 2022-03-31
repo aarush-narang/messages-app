@@ -1,0 +1,1 @@
+// check if email is a valid email, then check if email already exists

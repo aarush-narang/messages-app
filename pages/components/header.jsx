@@ -1,7 +1,6 @@
 import styles from '../../styles/Header.module.css'
 import { Button } from './inputComponents'
 import Cookies from 'js-cookie'
-import { fetchNewToken } from '../../lib/util'
 
 export default function Header({ title = '', signedIn = false, csrfToken }) {
     async function logout() {
@@ -11,16 +10,21 @@ export default function Header({ title = '', signedIn = false, csrfToken }) {
                 'Authorization': 'Bearer ' + Cookies.get('accessToken'),
                 'CSRF-Token': csrfToken,
             }
-        }).catch()
+        }).catch(err => console.log(err))
 
         if (logoutRes.status !== 200) {
-            const newToken = await fetchNewToken(Cookies.get())
+            const newToken = await fetch('http://localhost:3000/api/v1/auth/account/token', { // refresh token
+                method: 'GET',
+                headers: {
+                    Authorization: 'Bearer ' + Cookies.get('refreshToken'),
+                }
+            }).then(res => res.json())
             if (!newToken) {
                 Cookies.set('accessToken', 'deleted', { expires: 0 })
                 Cookies.set('refreshToken', 'deleted', { expires: 0 })
                 window.location.reload()
             }
-            if (newToken.message === 'SUCCESS') {
+            if (newToken.accessToken) {
                 return logout()
             }
         } else if (logoutRes.status === 200) {

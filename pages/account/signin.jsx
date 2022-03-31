@@ -61,7 +61,7 @@ export default function SignIn({ csrfToken }) {
                 }>
                     <h1 className={styles.form_title}>Sign In</h1>
                     <div className={styles.inputs_container}>
-                        <Input placeholder={"Email"} name={"email"} minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
+                        <Input type={"email"} placeholder={"Email"} name={"email"} minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
                         <PasswordInput name={"password"} minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
                         <ErrorMessage error={error} />
                     </div>
