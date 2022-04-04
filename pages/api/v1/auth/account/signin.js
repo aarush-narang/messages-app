@@ -31,7 +31,7 @@ async function SignInHandler(req, res) {
     const refreshToken = generateRefreshToken({ rb: crypto.randomBytes(32).toString('hex'), uid: user.uid })
     // when user logs in, look for their current ip in previous sessions and restore it if it exists
     const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
-    await UpdateUser({ user: { uid: user.uid }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
+    await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
 
     // return basic user details and token
     res.setHeader('Set-Cookie', [`accessToken=${accessToken}; Path=/; SameSite`, `refreshToken=${refreshToken}; Path=/; SameSite`]);

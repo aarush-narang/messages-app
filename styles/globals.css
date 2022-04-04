@@ -9,7 +9,7 @@ https://coolors.co/0e3b43-22454b-354f52-6f908e-a3bbad-002e2c-357266-84a98c
     --secondary-color: #285158;
 
     --cyan-tone-light: #9acec9;
-    --cyan-tone-dark: #609793;
+    --cyan-tone-dark: #6baba6;
     --blue-tone-dark: #365d61;
 
     --green-tone-very-light: #A3BBAD;
@@ -17,11 +17,11 @@ https://coolors.co/0e3b43-22454b-354f52-6f908e-a3bbad-002e2c-357266-84a98c
     --green-tone-dark: #357226;
     --green-tone-very-dark: #002E2C;
     
-    --color-correct-light: #6CCE93;
+    --color-correct-light: #6ccea5;
     --color-correct-dark: #4CA26F;
     --color-warning-light: #FFF5B3;
     --color-warning-dark: #F3E588;
-    --color-error-light: #f7b49f;
+    --color-error-light: hsl(10, 45%, 65%);
     --color-error-dark: #b94f35;
 
     --font-color: var(--cyan-tone-light);
@@ -34,11 +34,6 @@ body {
     margin: 0;
     background-color: var(--primary-color);
     font-family: Urbanist, sans-serif, Arial, Helvetica, sans-serif;
-}
-
-a {
-    color: inherit;
-    text-decoration: none;
 }
 
 * {

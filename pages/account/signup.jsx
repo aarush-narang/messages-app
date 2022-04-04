@@ -1,13 +1,9 @@
 import Head from "next/head";
 import { useState } from "react";
-import styles from "../../styles/SignIn.module.css";
+import styles from "../../styles/Forms.module.css";
 import { SignUpPasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
 import { csrf } from "../../lib/middleware";
-
-const validateEmail = (email) => {
-    const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-    return email.match(email_regex)
-}
+import * as cookie from 'cookie'
 
 export default function SignUp({ csrfToken }) {
     const [error, setError] = useState('');
@@ -30,12 +26,37 @@ export default function SignUp({ csrfToken }) {
             setError('')
         })
     }
+    const validateEmail = (email) => {
+        const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+        return email.match(email_regex)
+    }
+    const handleInput = (input) => {
+        const pwd = typeof input === 'string' ? input : input.target.value;
+        const passChecksCont = document.querySelector('[name="checks"]');
+        passChecksCont.style.opacity = pwd.length > 0 ? 1 : 0;
+        passChecksCont.style.userSelect = pwd.length > 0 ? 'auto' : 'none';
+
+        const lowerRegex = /^(?=.*[a-z]{3,})/
+        const upperRegex = /^(?=.*[A-Z]{2,})/
+        const numberRegex = /^(?=.*\d{2,})/
+        const specialRegex = /^(?=.*[@$!%*?&]{1,})/
+
+        passChecksCont.querySelector('[name="lower"]').setAttribute('data-state', !!pwd.match(lowerRegex));
+        passChecksCont.querySelector('[name="upper"]').setAttribute('data-state', !!pwd.match(upperRegex));
+        passChecksCont.querySelector('[name="number"]').setAttribute('data-state', !!pwd.match(numberRegex));
+        passChecksCont.querySelector('[name="special"]').setAttribute('data-state', !!pwd.match(specialRegex));
+        passChecksCont.querySelector('[name="minchar"]').setAttribute('data-state', pwd.length >= 8 ? true : false);
+
+        return !!pwd.match(lowerRegex) && !!pwd.match(upperRegex) && !!pwd.match(numberRegex) && !!pwd.match(specialRegex) && pwd.length >= 8
+    }
+    const handleSubmit = handleInput
+
     return (
         <div>
             <Head>
                 <title>Sign Up</title>
             </Head>
-            <div className={styles.form_container}>
+            <div className={styles.form_container} style={{ minHeight: '90vh' }}>
                 <form className={styles.form} onSubmit={
                     async (e) => {
                         e.preventDefault();
@@ -60,6 +81,10 @@ export default function SignUp({ csrfToken }) {
                             setError('Passwords do not match');
                             return changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
                         }
+                        if (!handleSubmit(data.password) && !err) {
+                            setError('Password must match requirements below');
+                            return changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
+                        }
                         if (!validateEmail(data.email) && !err) {
                             setError('Email is not valid');
                             return changeDataState(document.querySelector(`[name="email"]`), 'error');
@@ -70,48 +95,91 @@ export default function SignUp({ csrfToken }) {
                         }
                         if (err) return
 
-                        // send data to server to create account and wait for response with user access and refresh token
-                        const res = await fetch('/api/v1/auth/account/signup', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'CSRF-Token': csrfToken
+                        // encryption example
+                        const kewPair = await crypto.subtle.generateKey(
+                            {
+                                name: "RSA-OAEP",
+                                modulusLength: 4096,
+                                publicExponent: new Uint8Array([1, 0, 1]),
+                                hash: "SHA-256",
                             },
-                            body: JSON.stringify(data)
-                        })
-                        if (res.status === 400) {
-                            const json = await res.json()
-                            if(!json.message) {
-                                changeDataState([...document.querySelectorAll(`[name]`)], 'error');
-                                return setError('Something went wrong, try again later.')
-                            } else if(json.message === 'DUPLICATE_USERNAME') {
-                                setError('Username already exists');
-                                return changeDataState(document.querySelector(`[name="username"]`), 'error');
-                            } else if(json.message === 'DUPLICATE_EMAIL') {
-                                setError('Email already exists');
-                                return changeDataState(document.querySelector(`[name="email"]`), 'error');
-                            }
-                            return
-                        }
-                        else if (res.status === 200) {
-                            const json = await res.json()
-                            console.log(json)
-                        }
+                            true,
+                            ["encrypt", "decrypt"]
+                        )
+                        console.log(kewPair)
+                        const encrypted = await crypto.subtle.encrypt(
+                            {
+                                name: "RSA-OAEP",
+                                modulusLength: 4096,
+                                publicExponent: new Uint8Array([1, 0, 1]),
+                                hash: "SHA-256",
+                            },  
+                            kewPair.publicKey,
+                            new TextEncoder().encode(data.password)
+                        )
+                        console.log(encrypted)
+                        const decrypted = await crypto.subtle.decrypt(
+                            {
+                                name: "RSA-OAEP",
+                                modulusLength: 4096,
+                                publicExponent: new Uint8Array([1, 0, 1]),
+                                hash: "SHA-256",
+                            },
+                            kewPair.privateKey,
+                            encrypted
+                        )
+                        console.log(new TextDecoder().decode(decrypted))
+
+
+                        // send data to server to create account and wait for response with user access and refresh token
+                        // const res = await fetch('/api/v1/auth/account/signup', {
+                        //     method: 'POST',
+                        //     headers: {
+                        //         'Content-Type': 'application/json',
+                        //         'CSRF-Token': csrfToken
+                        //     },
+                        //     body: JSON.stringify(data)
+                        // })
+                        // if (res.status === 400) {
+                        //     const json = await res.json()
+                        //     if (!json.message) {
+                        //         changeDataState([...document.querySelectorAll(`[name]`)], 'error');
+                        //         return setError('Something went wrong, try again later.')
+                        //     } else if (json.message === 'DUPLICATE_USERNAME') {
+                        //         setError('Username already exists');
+                        //         return changeDataState(document.querySelector(`[name="username"]`), 'error');
+                        //     } else if (json.message === 'DUPLICATE_EMAIL') {
+                        //         setError('Email already exists');
+                        //         return changeDataState(document.querySelector(`[name="email"]`), 'error');
+                        //     }
+                        //     return
+                        // }
+                        // else if (res.status === 200) {
+
+                        //     // window.location.href = '/'
+                        // }
                     }
                 }>
+                    {/* check password requirements on submit as well */}
                     <h1 className={styles.form_title}>Sign Up</h1>
                     <div className={styles.inputs_container}>
-                        <Input type={'text'} placeholder={"Username"} name={"username"} minWidth={'170px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
+                        <Input type={'text'} placeholder={"Username"} name={"username"} minWidth={'240px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
                         <Input placeholder={"Email"} name={"email"} minWidth={'240px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
-                        <SignUpPasswordInput name={"password"} minWidth={'240px'} width={'100%'} maxWidth={'500px'} height={'60px'} />
+                        <SignUpPasswordInput name={"password"} minWidth={'240px'} width={'100%'} maxWidth={'500px'} height={'60px'} onInput={handleInput} />
                         <ErrorMessage error={error} />
                     </div>
                     <div className={styles.form_helpers}>
-                        {/* <p>Forgot your password? <a href="/account/forgot" className={styles.link}>Reset Password</a></p> */}
                         <p></p>
                         <p>Already have an account? <a href="/account/signin" className={styles.link}>Sign In</a></p>
                     </div>
                     <Button type={'submit'} name={"signin-submit"} innerText={'Sign Up'} className={styles.submit} />
+                    <div name={'checks'} className={styles.password_checks} style={{ opacity: 0, userSelect: 'none' }}>
+                        <div name={'lower'} className={styles.password_check}>At least three lowercase letters</div>
+                        <div name={'upper'} className={styles.password_check}>At least two uppercase letters</div>
+                        <div name={'number'} className={styles.password_check}>At least two numbers</div>
+                        <div name={'special'} className={styles.password_check}>At least one special characters</div>
+                        <div name={'minchar'} className={styles.password_check}>At least eight characters</div>
+                    </div>
                 </form>
                 {/* add other ways to authenticate (like google) */}
             </div>
@@ -122,7 +190,17 @@ export default function SignUp({ csrfToken }) {
 
 export async function getServerSideProps(context) {
     const { req, res } = context
+    const cookies = cookie.parse(req.headers.cookie || '')
+    if (cookies.accessToken || cookies.refreshToken) {
+        return {
+            redirect: {
+                destination: '/'
+            }
+        }
+    }
+
     await csrf(req, res)
+
     return {
         props: { csrfToken: req.csrfToken() },
     }

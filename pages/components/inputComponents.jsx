@@ -2,7 +2,7 @@ import styles from "../../styles/FormComponents.module.css";
 import ErrorPage from 'next/error'
 import { useState } from "react";
 
-export function Input({ placeholder, name, minWidth, width, maxWidth, minHeight, height, maxHeight, type, ...props }) {
+export function Input({ placeholder, onInput, name, minWidth, width, maxWidth, minHeight, height, maxHeight, type, ...props }) {
     const inputStyles = {
         minWidth,
         width,
@@ -22,6 +22,7 @@ export function Input({ placeholder, name, minWidth, width, maxWidth, minHeight,
                 autoCapitalize="false"
                 autoCorrect="false"
                 style={inputStyles}
+                onInput={onInput}
                 name={name}
             />
         </div>
@@ -57,7 +58,7 @@ export function PasswordInput({ name, minWidth, width, maxWidth, minHeight, heig
     )
 }
 
-export function SignUpPasswordInput({ name, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
+export function SignUpPasswordInput({ name, onInput, onSubmit, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
     const [passView, setPassView] = useState('password');
     const [confirmPassView, setConfirmPassView] = useState('password');
     const [passText, setPassText] = useState('View');
@@ -92,7 +93,7 @@ export function SignUpPasswordInput({ name, minWidth, width, maxWidth, minHeight
     return (
         <>
             <div>
-                <input className={styles.input} style={passStyles} type={passView} placeholder="Password" name={name} />
+                <input className={styles.input} onInput={onInput} onSubmit={onSubmit} style={passStyles} type={passView} placeholder="Password" name={name} />
                 <a className={styles.pass_view} onClick={handlePassView}>{passText}</a>
             </div>
             <div>

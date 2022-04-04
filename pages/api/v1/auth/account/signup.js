@@ -1,5 +1,5 @@
 // check if email is a valid email, then check if email already exists
-import { QueryUser, UpdateUser } from "../../../../../lib/mongo"
+import { InsertUser, QueryUser, UpdateUser } from "../../../../../lib/mongo"
 import { apiHandler } from '../../../../../lib/helpers/api-handler'
 import { generateAccessToken, generateRefreshToken } from "../../../../../lib/helpers/jwt-middleware";
 
@@ -25,16 +25,17 @@ async function SignUpHandler(req, res) {
     const emailCheck = await QueryUser({ user: { email } });
     if (emailCheck) return res.status(400).json({ message: 'DUPLICATE_EMAIL' });
 
-
-
-    // const accessToken = generateAccessToken({ token: user.token, username: user.username, uid: user.uid })
-    // const refreshToken = generateRefreshToken({ rb: crypto.randomBytes(32).toString('hex'), uid: user.uid })
+    // insert user into db, create access and refresh tokens and send back to client, create encryption keys client side and send back public key to server
+    const user = await InsertUser({ user: { username, email, password } })
+    
+    const accessToken = generateAccessToken({ token: user.token, username: user.username, uid: user.uid })
+    const refreshToken = generateRefreshToken({ rb: crypto.randomBytes(32).toString('hex'), uid: user.uid })
     // // when user logs in, look for their current ip in previous sessions and restore it if it exists
-    // const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
-    // await UpdateUser({ user: { uid: user.uid }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
+    const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
+    await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: '0.0.0.0', location: 'US' }) } })
 
-    // // return basic user details and token
-    // res.setHeader('Set-Cookie', [`accessToken=${accessToken}; Path=/; SameSite`, `refreshToken=${refreshToken}; Path=/; SameSite`]);
+    // return basic user details and token
+    res.setHeader('Set-Cookie', [`accessToken=${accessToken}; Path=/; SameSite`, `refreshToken=${refreshToken}; Path=/; SameSite`]);
     return res.send({
         status: 'SUCCESS',
         // also send other user info like encryption key for their messages

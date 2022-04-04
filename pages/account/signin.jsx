@@ -1,8 +1,8 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
-import styles from "../../styles/SignIn.module.css";
+import styles from "../../styles/Forms.module.css";
 import { PasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
-import Cookies from 'js-cookie'
+import * as cookie from 'cookie'
 import { csrf } from "../../lib/middleware";
 
 const validateEmail = (email) => {
@@ -24,7 +24,7 @@ export default function SignIn({ csrfToken }) {
             <Head>
                 <title>Sign In</title>
             </Head>
-            <div className={styles.form_container}>
+            <div className={styles.form_container} style={{ minHeight: '80vh' }}>
                 <form className={styles.form} onSubmit={
                     async (e) => {
                         e.preventDefault();
@@ -82,6 +82,14 @@ export default function SignIn({ csrfToken }) {
 
 export async function getServerSideProps(context) {
     const { req, res } = context
+    const cookies = cookie.parse(req.headers.cookie || '')
+    if(cookies.accessToken || cookies.refreshToken) {
+        return {
+            redirect: {
+                destination: '/'
+            }
+        }
+    }
     await csrf(req, res)
     return {
         props: { csrfToken: req.csrfToken() },
