@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "csurf": "^1.11.0",
     "dotenv": "^16.0.0",
     "express-jwt": "^6.1.1",
