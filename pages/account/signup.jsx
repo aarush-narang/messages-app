@@ -4,6 +4,7 @@ import styles from "../../styles/Forms.module.css";
 import { SignUpPasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
 import { csrf } from "../../lib/middleware";
 import * as cookie from 'cookie'
+import crypto from 'crypto'
 
 export default function SignUp({ csrfToken }) {
     const [error, setError] = useState('');
@@ -95,41 +96,15 @@ export default function SignUp({ csrfToken }) {
                         }
                         if (err) return
 
-                        // encryption example
-                        const kewPair = await crypto.subtle.generateKey(
-                            {
-                                name: "RSA-OAEP",
-                                modulusLength: 4096,
-                                publicExponent: new Uint8Array([1, 0, 1]),
-                                hash: "SHA-256",
-                            },
-                            true,
-                            ["encrypt", "decrypt"]
-                        )
-                        console.log(kewPair)
-                        const encrypted = await crypto.subtle.encrypt(
-                            {
-                                name: "RSA-OAEP",
-                                modulusLength: 4096,
-                                publicExponent: new Uint8Array([1, 0, 1]),
-                                hash: "SHA-256",
-                            },  
-                            kewPair.publicKey,
-                            new TextEncoder().encode(data.password)
-                        )
-                        console.log(encrypted)
-                        const decrypted = await crypto.subtle.decrypt(
-                            {
-                                name: "RSA-OAEP",
-                                modulusLength: 4096,
-                                publicExponent: new Uint8Array([1, 0, 1]),
-                                hash: "SHA-256",
-                            },
-                            kewPair.privateKey,
-                            encrypted
-                        )
-                        console.log(new TextDecoder().decode(decrypted))
+                        // encryption
+                       
+                        const dh = crypto.getDiffieHellman('modp14')
+                        dh.generateKeys()
 
+                        // const enc = crypto.publicEncrypt(dh.getPublicKey(), Buffer.from('data'))
+                        // const dec = crypto.privateDecrypt(dh.getPrivateKey(), enc)
+                        // const enc = window.crypto.subtle.encrypt("RSA-OAEP", dh.getPublicKey(), Buffer.from(data.password))
+                        // console.log(enc)
 
                         // send data to server to create account and wait for response with user access and refresh token
                         // const res = await fetch('/api/v1/auth/account/signup', {
