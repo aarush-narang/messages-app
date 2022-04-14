@@ -104,7 +104,13 @@ export function SignUpPasswordInput({ name, onInput, onSubmit, minWidth, width, 
     )
 }
 
-export function Button({ type, name, innerText, className, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
+
+export function Spinner({ width, height, thickness, color }) {
+    return (
+        <div className={styles.spinner} style={{ width, height, borderWidth: thickness, borderColor: color, borderRightColor: 'transparent' }}></div>
+    )
+}
+export function Button({ loading, loadingColor, type, name, innerText, className, minWidth, width, maxWidth, minHeight, height, maxHeight, ...props }) {
     const submitStyles = {
         minWidth,
         width,
@@ -115,7 +121,12 @@ export function Button({ type, name, innerText, className, minWidth, width, maxW
         ...props,
     }
     return (
-        <button className={className} style={submitStyles} type="submit" name={name} onClick={props.onClick}>{innerText}</button>
+        <button className={className} style={submitStyles} type="submit" name={name} onClick={props.onClick}>{
+            loading ?
+                <Spinner height={'1.75em'} width={'1.75em'} thickness={'3px'} color={loadingColor ? loadingColor : 'var(--color-correct-dark)'}/>
+                :
+                innerText
+        }</button>
     )
 }
 

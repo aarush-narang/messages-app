@@ -1,22 +1,10 @@
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
 import * as cookie from 'cookie'
-import { get } from '../lib/helpers/fetch-wrapper'
 import Header from "./components/header";
 import { csrf } from "../lib/middleware";
 
 export default function Home({ data, csrfToken }) {
-    const tempStylesMessage = {
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontSize: "1.5rem",
-        fontWeight: "bold",
-        color: "red",
-        textAlign: "center",
-    }
-
     if (!data.account_status) {
         return (
             <>
@@ -30,17 +18,17 @@ export default function Home({ data, csrfToken }) {
 
         );
     } else {
-        if (data.data) {
-            const recipients = Object.keys(data.data)
-            const messages = Object.values(data.data)
-            return (
-                <>
-                    <Header title={"Messages"} signedIn={true} csrfToken={csrfToken} />
-                    <div className={styles.container}>
-                        <Head>
-                            <title>Messages</title>
-                        </Head>
-                        {
+        const recipients = Object.keys(data.data)
+        const messages = Object.values(data.data)
+        return (
+            <>
+                <Header title={"Messages"} signedIn={true} csrfToken={csrfToken} />
+                <div className={styles.container}>
+                    <Head>
+                        <title>Messages</title>
+                    </Head>
+                    {
+                        data.data ?
                             recipients.map((r, i) => {
                                 return (
                                     <div key={r} recipient={r}>
@@ -56,19 +44,13 @@ export default function Home({ data, csrfToken }) {
                                         }
                                     </div>
                                 )
-                            })
-                        }
-                    </div>
-                </>
+                            }) :
+                            <h1>Loading...</h1>
+                    }
+                </div>
+            </>
 
-            );
-        } else {
-            return (
-                <>
-                    <h1>Loading...</h1>
-                </>
-            )
-        }
+        );
     }
 
 }
@@ -83,8 +65,15 @@ export async function getServerSideProps(ctx) {
     const cookies = cookie.parse(token ? token : '');
     if (cookies.accessToken) {
         async function fetchMessages(accessToken) {
-            return await get('http://localhost:3000/api/v1/auth/user/user', { accessToken }).catch(async err => {
-                if (err === 'Authentication Failed') { // if token is expired but exists
+            const r = await fetch('http://localhost:3000/api/v1/auth/user/messages', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            }).then(res => res.json())
+            if (r.error) {
+                if (r.message === 'Authentication Failed') { // if token is expired but exists
                     const newToken = await fetch('http://localhost:3000/api/v1/auth/account/token', { // refresh token
                         method: 'GET',
                         headers: {
@@ -92,24 +81,34 @@ export async function getServerSideProps(ctx) {
                         }
                     }).then(res => res.json()).catch(err => console.log(err))
 
-                    ctx.res.setHeader('Set-Cookie', [`accessToken=${newToken.accessToken}; Path=/; SameSite`]);
-                    return await fetchMessages(newToken.accessToken)
-                } else if (err === 'Invalid Token') { // if token is invalid
+                    if (newToken.error && newToken.message === 'Invalid Token') { // if refresh token is invalid
+                        return ctx.res.setHeader( // remove tokens from cookies (logout)
+                            "Set-Cookie", [
+                            `accessToken=deleted; Max-Age=0`,
+                            `refreshToken=deleted; Max-Age=0`]
+                        );
+                    } else {
+                        ctx.res.setHeader('Set-Cookie', [`accessToken=${newToken.accessToken}; Path=/; SameSite`]);
+                        return await fetchMessages(newToken.accessToken)
+                    }
+                } else if (r.message === 'Invalid Token') { // if access token is invalid
                     ctx.res.setHeader( // remove tokens from cookies (logout)
                         "Set-Cookie", [
                         `accessToken=deleted; Max-Age=0`,
                         `refreshToken=deleted; Max-Age=0`]
                     );
                 }
-            })
+            }
+            return r
         }
+
         const res = await fetchMessages(cookies.accessToken)
         if (res) {
             return {
                 props: { // return props here
                     data: {
                         account_status: true,
-                        data: res.messages
+                        data: res.messages ? res.messages : {}
                     },
                     csrfToken
                 }

@@ -19,6 +19,7 @@ export default function SignIn({ csrfToken }) {
             setError('')
         })
     }
+    const [loading, setLoading] = useState(false);
     return (
         <div>
             <Head>
@@ -28,38 +29,50 @@ export default function SignIn({ csrfToken }) {
                 <form className={styles.form} onSubmit={
                     async (e) => {
                         e.preventDefault();
-                        const formData = new FormData(e.target);
-                        const data = {};
-                        for (let name of formData.keys()) {
-                            data[name] = formData.get(name);
-                        }
+                        setLoading(true);
+                        setTimeout(async () => {
+                            const formData = new FormData(e.target);
+                            const data = {};
+                            for (let name of formData.keys()) {
+                                data[name] = formData.get(name);
+                            }
 
-                        if (!data.email || !validateEmail(data.email)) {
-                            setError('Email is invalid');
-                            return changeDataState(e.target[0], 'error');
-                        } else if (!data.password) {
-                            setError('Password is invalid');
-                            return changeDataState(e.target[1], 'error');
-                        }
+                            if (!data.email || !validateEmail(data.email)) {
+                                setError('Email is invalid');
+                                changeDataState(e.target[0], 'error');
+                                return setLoading(false);
+                            } else if (!data.password) {
+                                setError('Password is invalid');
+                                changeDataState(e.target[1], 'error');
+                                return setLoading(false);
+                            }
 
-                        if(error.length > 0) return; // prevents submit spam and redeces db calls
-                        const res = await fetch('/api/v1/auth/account/signin', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'CSRF-Token': csrfToken,
-                            },
-                            body: JSON.stringify(data)
-                        })
-                        if (res.status === 404 || res.status === 400) {
-                            setError('Email or password is incorrect');
-                            changeDataState(e.target[0], 'error');
-                            changeDataState(e.target[1], 'error');
-                            return
-                        } else if (res.status === 200) {
-                            window.location.href = '/'
-                            return
-                        }
+                            if (error.length > 0) return; // prevents submit spam and redeces db calls
+                            const ip = await fetch('https://api.ipify.org', {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            }).then(res => res.text())
+                            data.ip = ip;
+                            const res = await fetch('/api/v1/auth/account/signin', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'CSRF-Token': csrfToken,
+                                },
+                                body: JSON.stringify(data)
+                            })
+                            if (res.status === 404 || res.status === 400) {
+                                setError('Email or password is incorrect');
+                                changeDataState(e.target[0], 'error');
+                                changeDataState(e.target[1], 'error');
+                                return setLoading(false);
+                            } else if (res.status === 200) {
+                                window.location.href = '/'
+                                return
+                            }
+                        }, 1500);
                     }
                 }>
                     <h1 className={styles.form_title}>Sign In</h1>
@@ -72,7 +85,7 @@ export default function SignIn({ csrfToken }) {
                         <p>Don't have an account? <a href="/account/signup" className={styles.link}>Sign Up</a></p>
                         <p>Forgot your password? <a href="/account/forgot" className={styles.link}>Reset Password</a></p>
                     </div>
-                    <Button type={'submit'} name={"signin-submit"} innerText={'Sign In'} className={styles.submit} />
+                    <Button loading={loading} loadingColor={'#5ca64c'} type={'submit'} name={"signin-submit"} innerText={'Sign In'} className={styles.submit} />
                 </form>
                 {/* add other ways to authenticate (like google) */}
             </div>
@@ -83,7 +96,7 @@ export default function SignIn({ csrfToken }) {
 export async function getServerSideProps(context) {
     const { req, res } = context
     const cookies = cookie.parse(req.headers.cookie || '')
-    if(cookies.accessToken || cookies.refreshToken) {
+    if (cookies.accessToken || cookies.refreshToken) {
         return {
             redirect: {
                 destination: '/'
