@@ -42,4 +42,4 @@ async function SignInHandler(req, res) {
     return res.status(200).send()
 }
 
-export default apiHandler(SignInHandler);
+export default apiHandler(SignInHandler, ['csrf']);

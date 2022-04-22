@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useState } from "react";
 import styles from "../../styles/Forms.module.css";
 import { SignUpPasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
+import { FormPagesHeader } from "../components/header";
 import { csrf } from "../../lib/middleware";
 import * as cookie from 'cookie'
 import crypto from 'crypto'
@@ -58,8 +59,9 @@ export default function SignUp({ csrfToken }) {
             <Head>
                 <title>Sign Up</title>
             </Head>
-            <div className={styles.form_container} style={{ minHeight: '90vh' }}>
-                <form className={styles.form} onSubmit={
+            <FormPagesHeader />
+            <div className={styles.form_container} >
+                <form className={styles.form} style={{ minHeight: '80vh' }} onSubmit={
                     async (e) => {
                         e.preventDefault();
                         setLoading(true);
@@ -135,8 +137,8 @@ export default function SignUp({ csrfToken }) {
                                 else if (res.status === 200) {
                                     window.location.href = '/'
                                 }
-                            }, 1200);
-                        }, 300);
+                            }, 300);
+                        }, 700);
 
 
 

@@ -7,4 +7,4 @@ function handleAccessToken(req, res) {
     return res.send({ accessToken: token });
 }
 
-export default apiHandler(handleAccessToken)
+export default apiHandler(handleAccessToken, ['csrf', 'jwt']);

@@ -1,24 +1,80 @@
-.headerContainer {
+.formHeaderContainer {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr;
     grid-template-rows: 1fr;
-    gap: 10px;
+    align-items: center;
 
-    
-    height: 60px;
+    padding: 10px 0;
+
+    background-color: #0b2b31;
+
+    min-height: var(--header-height);
+    min-width: 230px;
+    width: 100%;
     color: var(--font-color);
     font-family: Urbanist;
     font-size: 24px;
 }
+
+.headerContainer {
+    display: grid;
+    grid-template-columns: 1fr 5fr 1fr;
+    grid-template-rows: 1fr;
+    align-items: center;
+
+    padding: 10px 0;
+
+    background-color: #0b2b31;
+
+    min-height: var(--header-height);
+    min-width: min-content;
+    width: 100%;
+    color: var(--font-color);
+    font-family: Urbanist;
+    font-size: calc(0.7em + 1vmin);
+}
+
 .headerTitle {
     justify-self: center;
     align-self: center;
+    margin: 0 10px;
 }
-.headerButtons {
-    justify-self: end;
-    align-self: center;
-    padding: 0;
-}
-.headerButton {
 
+.headerButtons {
+    display: flex;
+    justify-content: flex-end;
+    margin-right: 10px;
+}
+
+.headerButton > a {
+    font-weight: bold;
+    letter-spacing: 0.7px;
+    
+}
+
+.headerButton {
+    background-color: #1a545e;
+    box-shadow: 1px 1px 4px black;
+
+    border: none;
+    border-radius: 10px;
+
+    min-width: 85px;
+    min-height: 36px;
+    height: fit-content;
+    padding: 5px 15px;
+    margin: 3px 5px;
+
+    font-family: Urbanist;
+    font-size: calc(0.5rem + 0.5vmin);
+    color: var(--font-color);
+
+    cursor: pointer;
+
+    transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.headerButton:hover {
+    transform: translateX(-1px) translateY(-1px);
+    box-shadow: 3px 3px 6px black;
 }

@@ -1,8 +1,6 @@
 .form_container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
+    display: block;
+    min-width: min-content;
     padding: 25px;
     margin-bottom: 20px;
 }
@@ -13,6 +11,7 @@
     align-items: center;
     justify-content: center;
     
+    min-width: min-content;
     width: 80%;
     max-width: 700px;
     margin: auto;

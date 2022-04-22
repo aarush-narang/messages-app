@@ -4,6 +4,7 @@ import styles from "../../styles/Forms.module.css";
 import { PasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
 import * as cookie from 'cookie'
 import { csrf } from "../../lib/middleware";
+import { FormPagesHeader } from "../components/header";
 
 const validateEmail = (email) => {
     const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
@@ -25,8 +26,9 @@ export default function SignIn({ csrfToken }) {
             <Head>
                 <title>Sign In</title>
             </Head>
-            <div className={styles.form_container} style={{ minHeight: '80vh' }}>
-                <form className={styles.form} onSubmit={
+            <FormPagesHeader />
+            <div className={styles.form_container}>
+                <form className={styles.form} style={{ minHeight: '58vh' }} onSubmit={
                     async (e) => {
                         e.preventDefault();
                         setLoading(true);
@@ -72,7 +74,7 @@ export default function SignIn({ csrfToken }) {
                                 window.location.href = '/'
                                 return
                             }
-                        }, 1500);
+                        }, 1000);
                     }
                 }>
                     <h1 className={styles.form_title}>Sign In</h1>

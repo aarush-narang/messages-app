@@ -1,13 +1,14 @@
 import Head from "next/head";
-import styles from "../styles/Home.module.css";
+import { csrf } from "../../lib/middleware";
+import { FormPagesHeader, HomeHeader } from "../components/header";
+import { GroupsComponent, ChatComponent } from "../components/chatComponents";
+import styles from "../../styles/Home.module.css";
 import * as cookie from 'cookie'
-import { HomeHeader } from "./components/header";
-import { csrf } from "../lib/middleware";
-import { Spinner } from "./components/inputComponents";
-import { ChatComponent, GroupsComponent } from "./components/chatComponents";
+import { useRouter } from 'next/router'
 import { useState, useEffect } from "react";
+import { Spinner } from "../components/inputComponents";
 
-export default function Home({ data, csrfToken }) {
+export default function Groups({ data, csrfToken }) {
     if (!data.account_status) {
         return (
             <>
@@ -23,21 +24,39 @@ export default function Home({ data, csrfToken }) {
     } else {
         if (!data.data) {
             return (
-                <div style={{ width: '100%', height: '100%', display: "flex", justifyContent: "center", alignItems: "center" }}>
-                    <Spinner color={'#2e8283'} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
-                </div>
+                <>
+                    <FormPagesHeader />
+                    <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
+                        <Spinner color={'#2e8283'} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
+                    </div>
+                </>
             )
         }
         const groups = data.data
 
+        // current group id
+        const router = useRouter()
+        const { groupid } = router.query
+
         // current group chat selected
-        const [currentGroup, setCurrentGroup] = useState(null)
+        if (!(groups.find(group => group.id == groupid))) {
+            return (
+                <>
+                    <FormPagesHeader />
+                    <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
+                        <Spinner color={'#2e8283'} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
+                    </div>
+                </>
+            )
+        }
+        const [currentGroup, setCurrentGroup] = useState({ id: groupid, name: groups.find(g => g.id == groupid).name })
 
         useEffect(() => {
             window.addEventListener('popstate', (e) => {
                 setCurrentGroup(e.state.currentGroup)
             })
         }, [])
+
         return (
             <div>
                 <Head>
@@ -51,9 +70,9 @@ export default function Home({ data, csrfToken }) {
                     <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} />
                 </div>
             </div>
-
         );
     }
+
 }
 
 export async function getServerSideProps(ctx) {

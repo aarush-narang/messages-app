@@ -48,4 +48,4 @@ async function SignUpHandler(req, res) {
 
 }
 
-export default apiHandler(SignUpHandler);
+export default apiHandler(SignUpHandler, ['csrf']);

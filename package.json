@@ -10,21 +10,19 @@
   },
   "dependencies": {
     "aes-js": "^3.1.2",
+    "cookie": "^0.5.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "csurf": "^1.11.0",
     "dotenv": "^16.0.0",
-    "express-jwt": "^6.1.1",
     "fs": "^0.0.1-security",
     "ipdata": "^2.2.0",
     "js-cookie": "^3.0.1",
     "jsonwebtoken": "^8.5.1",
     "mongodb": "^4.4.1",
     "next": "12.1.0",
-    "next-auth": "^4.2.1",
     "react": "17.0.2",
-    "react-dom": "17.0.2",
-    "uuid": "^8.3.2"
+    "react-dom": "17.0.2"
   },
   "devDependencies": {
     "eslint": "8.10.0",
