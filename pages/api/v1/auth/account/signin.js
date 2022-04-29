@@ -7,11 +7,6 @@ import crypto from 'crypto'
 import getConfig from 'next/config';
 const { serverRuntimeConfig } = getConfig();
 
-/** 
- * @param {string} email
- * @returns {boolean|null}
- */
-
 /**
  * @param {Request} req 
  * @param {Response} res 
