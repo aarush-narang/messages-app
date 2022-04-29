@@ -9,7 +9,7 @@ export async function SignOutHandler(req, res) {
     const dbUser = await QueryUser({ user: { uid: user.uid, token: user.token } })
     const refreshTokens = dbUser.refreshTokens
     const newRefreshTokens = refreshTokens.filter(refreshToken => refreshToken.refreshToken !== req.body.refreshToken)
-    await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: newRefreshTokens } }) // remove refresh token (make more dynamic for multiple sessions)
+    await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: newRefreshTokens } }) // remove refresh token
     
     return res.status(200).send({ message: 'SUCCESS' })
     

@@ -26,12 +26,12 @@ async function SignUpHandler(req, res) {
     const emailCheck = await QueryUser({ user: { email } });
     if (emailCheck) return res.status(400).json({ message: 'DUPLICATE_EMAIL' });
 
-    // insert user into db, create access and refresh tokens and send back to client, create encryption keys client side and send back public key to server
+    // insert user into db, create access and refresh tokens and send back to client
     const user = await InsertUser({ user: { username, email, password } })
     
     const accessToken = generateAccessToken({ token: user.token, username: user.username, uid: user.uid })
     const refreshToken = generateRefreshToken({ rb: crypto.randomBytes(32).toString('hex'), uid: user.uid })
-    // // when user logs in, look for their current ip in previous sessions and restore it if it exists
+    // TODO: when user logs in, look for their current ip in previous sessions and restore it if it exists
     const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
 
     const ipData = new IPData(serverRuntimeConfig.ipDataApiKey);

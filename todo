@@ -7,7 +7,7 @@
     - messages
     - message edits
     - message deletes 
-    - be able to create new groups (create modal first)
+    - new groups (create modal first)
 
 ## MODALS & CONTEXT MENU:
 - create "saved!" modal for updating things like account settings, group order, etc.
@@ -24,4 +24,5 @@ come up with ways to remove refresh tokens automatically that are not being used
 
 ## OTHER:
 - add remember me option in signin page?
-create visitor page
+- create visitor page
+- search through all files for other TODOs not listed here
