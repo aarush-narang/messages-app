@@ -126,7 +126,9 @@
     justify-self: flex-start;
     align-self: center;
     border-radius: 100%;
+    width: 50px;
     max-width: 50px;
+    height: 50px;
     max-height: 50px;
 }
 
@@ -183,7 +185,6 @@
     max-width: 100%;
     padding: 10px 9px;
 }
-
 .messageInputForm {
     display: grid;
     position: relative;
@@ -196,9 +197,6 @@
     width: 100%;
     height: 100%;
 }
-
-
-
 .messageTextArea {
     justify-self: center;
     resize: none;
@@ -238,10 +236,6 @@
     right: 10px;
     margin-right: 4px;
 }
-
-
-
-
 .messageTextArea::placeholder {
     content: attr(placeholder);
     color: var(--font-color);
@@ -305,6 +299,112 @@
 
 /* message display area */
 .messages {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 15px;
     width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 100%;
+    margin-top: auto;
+}
+.message {
+    position: relative;
+    width: 80%;
+    min-width: 300px;
 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 12px 14px 14px 14px;
+}
+.messageHeader {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+.messageAuthor {
+    margin: 6px 0 10px 10px;
+    align-self: flex-start;
+}
+.messageContainer {
+    display: flex;
+    flex-direction: row;
+}
+.messageIcon {
+    width: 50px;
+    height: 50px;
+    border-radius: 100%;
+    margin-right: 14px;
+    align-self: flex-end;
+}
+.messageBody {
+    margin-top: 6px;
+}
+
+/* extra message information */
+.messageInfo {
+    display: flex;
+    flex-direction: row;
+}
+.messageInfo > *:not(:last-child) {
+    margin-right: 10px;
+}
+.messageInfoSec {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-end;
+}
+.messageTS {
+    font-size: 12px;
+}
+.messageEdited {
+    font-size: 10px;
+    opacity: 0.8;
+}
+.messageOptions {
+    font-family: Material Icons Outlined;
+    font-size: 18px;
+    border: 1px solid;
+    border-radius: 100%;
+    width: min-content;
+    height: min-content;
+    align-self: center;
+    cursor: pointer;
+    user-select: none;
+    transition: 150ms ease;
+}
+.messageOptions:hover {
+    opacity: 0.7;
+}
+.messageOptions:active {
+    transform: scale(0.95);
+}
+/* spacing between messages */
+.message[data-sender="true"] + .message[data-sender="false"],
+.message[data-sender="false"] + .message[data-sender="true"] {
+    margin-top: 30px;
+}
+.message[data-sender="true"] + .message[data-sender="true"],
+.message[data-sender="false"] + .message[data-sender="false"] {
+    margin-top: 6px;
+}
+
+/* induvidual message bubble styles, based on author */
+.message[data-sender="true"] { /* also make message bkg color slightly diff than not sender */
+    align-self: flex-end;
+    border-radius: 14px 14px 1px 14px;
+    color: #a5e4ee;
+    background-color: hsla(191, 45%, 40%, 0.902);
+    margin-left: auto;
+}
+.message[data-sender="false"] {
+    align-self: flex-start;
+    border-radius: 14px 14px 14px 1px;
+    color: #93d5df;
+    background-color: #25616fe6;
+    margin-right: auto;
 }

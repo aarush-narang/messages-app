@@ -21,14 +21,14 @@ export default function Home({ data, csrfToken }) {
 
         );
     } else {
-        if (!data.data) {
+        if (!data.user || !data.groups) {
             return (
-                <div style={{ width: '100%', height: '100%', display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
                     <Spinner color={'#2e8283'} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
                 </div>
             )
         }
-        const groups = data.data
+        const groups = data.groups
 
         // current group chat selected
         const [currentGroup, setCurrentGroup] = useState(null)
@@ -46,9 +46,9 @@ export default function Home({ data, csrfToken }) {
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
                 <div className={styles.container}>
                     {/* group chat selection */}
-                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} />
+                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={data.user} />
                     {/* chat area */}
-                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} />
+                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={data.user} />
                 </div>
             </div>
 
@@ -109,7 +109,8 @@ export async function getServerSideProps(ctx) {
                 props: { // return props here
                     data: {
                         account_status: true,
-                        data: res.groups ? res.groups : {}
+                        groups: res.groups ? res.groups : {},
+                        user: res.user ? res.user : {}
                     },
                     csrfToken
                 }

@@ -1,28 +1,27 @@
-add remember me option in signin page?
+# PRIORITY:
+- create context menu for groups, messages, people, etc. (like discord) create event listener on doc and check what was right clicked and based off that change the context menu, add read receipts to this. [Example for custom contextmenu](https://itnext.io/how-to-create-a-custom-right-click-menu-with-javascript-9c368bb58724)
+- right click context menu is also the same as the ... on each message, changed for a message type
+- connect to socket
+- manage (SOCKET EVENTS)
+    - file uploads
+    - messages
+    - message edits
+    - message deletes 
+    - be able to create new groups (create modal first)
 
-create visitor page
-
-use diffie hellman for encryption
-    uses private keys from both users (private and public keys are both randomly generated each time the user logs in and removed when they logout)
-
-when they load messages page, fetch account data, connect to socket, load groups/dms, etc.
-
-create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages
-
-store more information about refresh tokens to create a sessions panel with all open sessions and allow more than one refresh token: restore previous sessions if ip is same
-come up with ways to remove refresh tokens that are not being used (max number of sessions?)
-
-create "saved!" modal for updating things like account settings, group order, etc.
+## MODALS & CONTEXT MENU:
+- create "saved!" modal for updating things like account settings, group order, etc.
 create modal for creating groups or direct messages
-create component for the actual messages
-create context menu for groups, messages, people, etc. (like discord)
 
+## HEADER:
+- create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages
+create settings page to change username, email, phone #, password, etc as well as to manage sessions panel (put btn in dropdown)
 fix header sizing
-create settings page to change username, email, phone #, password, etc as well as to manage sessions panel
 
+## SESSIONS PANEL:
+- create a sessions panel with all open sessions: restore previous sessions if ip is same by refreshing access token?
+come up with ways to remove refresh tokens automatically that are not being used (max number of sessions?)
 
-https://getstream.io/blog/web-crypto-api-chat/
-https://crypto.stackexchange.com/questions/35530/where-and-how-to-store-private-keys-in-web-applications-for-private-messaging-wi
-https://stackoverflow.com/questions/28364430/best-way-to-store-private-crypto-key-in-browser
-https://www.youtube.com/watch?v=mbsmsi7l3r4&ab_channel=WebDevSimplified
-https://www.youtube.com/watch?v=M-0qt6tdHzk&ab_channel=KhanAcademyLabs
+## OTHER:
+- add remember me option in signin page?
+create visitor page

@@ -1,11 +1,11 @@
 import styles from "../../styles/Home.module.css";
 import jsCookie from "js-cookie";
 import { useState, useEffect } from "react";
-import Image from 'next/image'
-import { useRefetchToken, useDebounce, shortenName, formatBytes } from "./util";
+import { useRefetchToken, useDebounce, shortenName, formatBytes, fetchUserInfo } from "./util";
 import { Spinner } from "./inputComponents";
+import moment from "moment";
 
-export function GroupsComponent({ groups, csrfToken, currentGroup }) {
+export function GroupsComponent({ groups, csrfToken, currentGroup, user }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // if current group is not in groups, render spinner
         return (
             <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
@@ -106,7 +106,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup }) {
                     overflow: 'hidden',
                 }}
             ><div className={styles.groupsContainer}>
-                    <div className={styles.groups} style={{ opacity: menuState ? '0' : '1' }} onContextMenu={() => console.log('test')}>
+                    <div className={styles.groups} style={{ opacity: menuState ? '0' : '1' }}>
                         {
                             groups.length > 0 ?
                                 groups.map(group => {
@@ -124,13 +124,13 @@ export function GroupsComponent({ groups, csrfToken, currentGroup }) {
                                         }}>
                                             <div className={styles.groupImage}>
                                                 {
-                                                    group.icon ? <Image src={`/api/v1/data/images/${group.icon}`} layout={'intrinsic'} width={50} height={50} className={styles.groupImage} alt={`${group.name}'s icon`} /> :
-                                                        <Image src={`/api/v1/data/images/default`} layout={'intrinsic'} width={50} height={50} className={styles.groupImage} alt={`${group.name}'s icon`} />
+                                                    group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={styles.groupImage} alt={`${group.name}'s icon`} /> :
+                                                        <img title={`${group.name}'s icon`} src={`/api/v1/data/images/default`} loading={"lazy"} className={styles.groupImage} alt={`${group.name}'s icon`} />
                                                 }
                                             </div>
                                             <div className={styles.groupInfo}>
-                                                <h4 className={styles.groupTitle}>{shortenName(group.name)}</h4>
-                                                <div className={styles.numOfMembers}>Members: {group.members.length}</div>
+                                                <h4 title={group.name} className={styles.groupTitle}>{shortenName(group.name)}</h4>
+                                                <div title={`Members: ${group.members.length}`} className={styles.numOfMembers}>Members: {group.members.length}</div>
                                             </div>
                                             <div className={styles.lastMsg}></div>
                                         </div>
@@ -168,7 +168,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup }) {
     );
 }
 
-export function ChatComponent({ groups, csrfToken, currentGroup }) {
+export function ChatComponent({ groups, csrfToken, currentGroup, user }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // spinner is already rendered in the groups component
         return (
             <></>
@@ -184,36 +184,22 @@ export function ChatComponent({ groups, csrfToken, currentGroup }) {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
                     'Authorization': `Bearer ${jsCookie.get('accessToken')}`
                 }
             })
-        })
+        }).then(res => res.json())
+
         setMessages(messages)
     }, [currentGroup])
+
     return (
         <div className={styles.main}>
             {/* messages display */}
             <div className={styles.messages}>
                 {
                     messages.map(message => {
-                        const user = message.author
-                        
                         return (
-                            <div key={message.id} className={styles.message}>
-                                <div className={styles.messageHeader}>
-                                    <div className={styles.messageHeaderImage}>
-                                        <Image src={`/api/v1/data/images/`} layout={'intrinsic'} width={50} height={50} className={styles.messageHeaderImage} alt={`${message.sender.name}'s icon`} />
-                                    </div>
-                                    <div className={styles.messageHeaderInfo}>
-                                        <h4 className={styles.messageHeaderTitle}>{message.sender.name}</h4>
-                                        <div className={styles.messageHeaderTime}>{message.time}</div>
-                                    </div>
-                                </div>
-                                <div className={styles.messageBody}>
-                                    <div className={styles.messageBodyText}>{message.text}</div>
-                                </div>
-                            </div>
+                            <Message key={message.id} message={message} user={user} />
                         )
                     })
                 }
@@ -283,6 +269,29 @@ export function ChatComponent({ groups, csrfToken, currentGroup }) {
                     <button type={"submit"} className={styles.messageInputSubmit}>send</button>
                     {/* <input className={styles.messageInput} type="text" placeholder="Type a message..." /> */}
                 </form>
+            </div>
+        </div>
+    )
+}
+
+export function Message({ message, user }) {
+    return (
+        <div id={message.id} className={styles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
+            <div className={styles.messageHeader}>
+                <h4 className={styles.messageAuthor}>{message.author.username}</h4>
+                <div className={styles.messageInfo}>
+                    <div className={styles.messageInfoSec}>
+                        <span className={styles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
+                        <span className={styles.messageEdited} title={"This message was edited."}>{message.edited ? '(edited)' : ''}</span>
+                    </div>
+                    <span className={styles.messageOptions}>more_horiz</span>
+                </div>
+            </div>
+            <div className={styles.messageContainer}>
+                <img className={styles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
+                <div className={styles.messageBody}>
+                    {message.message}
+                </div>
             </div>
         </div>
     )

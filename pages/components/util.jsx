@@ -83,6 +83,18 @@ export async function useRefetchToken(callback) { // callback is a function that
     return res
 }
 
+export async function fetchUserInfo(accessToken, uid) {
+    return await useRefetchToken(async () => {
+        return await fetch(`http://localhost:3000/api/v1/user/publicUserInfo/${uid}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        }).then(res => res.json())
+    })
+}
+
 // Util
 export function shortenName(name) {
     if (name.length > 15) {

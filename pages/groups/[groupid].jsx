@@ -22,7 +22,7 @@ export default function Groups({ data, csrfToken }) {
 
         );
     } else {
-        if (!data.data) {
+        if (!data.user || !data.groups) {
             return (
                 <>
                     <FormPagesHeader />
@@ -32,7 +32,7 @@ export default function Groups({ data, csrfToken }) {
                 </>
             )
         }
-        const groups = data.data
+        const groups = data.groups
 
         // current group id
         const router = useRouter()
@@ -65,9 +65,9 @@ export default function Groups({ data, csrfToken }) {
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
                 <div className={styles.container}>
                     {/* group chat selection */}
-                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} />
+                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={data.user} />
                     {/* chat area */}
-                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} />
+                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={data.user} />
                 </div>
             </div>
         );
@@ -128,7 +128,8 @@ export async function getServerSideProps(ctx) {
                 props: { // return props here
                     data: {
                         account_status: true,
-                        data: res.groups ? res.groups : {}
+                        groups: res.groups ? res.groups : {},
+                        user: res.user ? res.user : {}
                     },
                     csrfToken
                 }
