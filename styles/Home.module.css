@@ -167,6 +167,7 @@
 /* main chat area */
 .main {
     display: grid;
+    position: relative;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
     width: 100%;
@@ -298,8 +299,45 @@
 }
 
 /* message display area */
+/* scroll down btn */
+.scrollContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    cursor: pointer;
+    user-select: none;
+    bottom: 90px;
+    padding: 5px;
+    position: absolute;
+    background-color: #062b31;
+    box-shadow: 0 0 4px 1px black;
+    border-radius: 100px;
+    opacity: 0.6;
+    transition: 150ms ease;
+}
+.scrollContainer:hover {
+    opacity: 1;
+    box-shadow: 0 0 14px 1px #062b31;
+}
+.scrollContainer:active {
+    transform: scale(0.98);
+}
+.overflowButton {
+    font-family: Material Icons Outlined;
+    font-size: 30px;
+    color: var(--font-color-secondary);
+
+}
+.scrollText {
+    margin: 0 2px;
+color: var(--font-color);
+}
+
+/* messages */
 .messages {
     display: flex;
+    position: relative;
     flex-direction: column;
     padding: 20px 15px;
     width: 100%;
@@ -314,8 +352,8 @@
     min-width: 300px;
 
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    flex-direction: row;
+    align-items: center;
 
     padding: 12px 14px 14px 14px;
 }
@@ -324,24 +362,28 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    width: 100%;
+    padding: 2px 0;
 }
 .messageAuthor {
-    margin: 6px 0 10px 10px;
-    align-self: flex-start;
+    margin: 0;
+    align-self: center;
 }
 .messageContainer {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    width: 100%;
 }
 .messageIcon {
     width: 50px;
     height: 50px;
     border-radius: 100%;
     margin-right: 14px;
-    align-self: flex-end;
+    align-self: flex-start;
 }
 .messageBody {
     margin-top: 6px;
+    font-size: 15px;
 }
 
 /* extra message information */
@@ -352,7 +394,7 @@
 .messageInfo > *:not(:last-child) {
     margin-right: 10px;
 }
-.messageInfoSec {
+.messageInfoSect {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
