@@ -36,6 +36,7 @@ export default function Home({ data, csrfToken }) {
 
         // socket connection
         const [loading, setLoading] = useState(true)
+        // TODO: add new state that tells whether request for socket failed or not and if it did, show error message and keep trying to connect
         useEffect(() => {
             setTimeout(async () => {
                 await useRefetchToken(async () => {

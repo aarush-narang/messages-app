@@ -114,6 +114,7 @@
     justify-self: center;
     height: fit-content;
     margin: 0 0 0 13px;
+    min-width: max-content;
 }
 
 .numOfMembers {

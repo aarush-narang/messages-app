@@ -50,7 +50,8 @@ const ioHandler = (req, res) => {
                     const groupId = data.groupId
                     const group = await QueryGroup({ groupId })
                     if (group.members.includes(user.uid)) {
-                        const messages = [...group.messages].slice(0, 50)
+                        // const messages = [...group.messages].slice(0, 50)
+                        const messages = [...group.messages]
                         const authors = []
 
                         for (const message of messages) {

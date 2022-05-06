@@ -169,7 +169,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user }) {
     const [fontColor, setFontColor] = useState('')
     const [messages, setMessages] = useState([])
     const [scrollButton, setScrollButton] = useState(false)
-    const [msgsLoading, setMsgsLoading] = useState(false)
+    const [msgsLoading, setMsgsLoading] = useState([])
     const [maxMessages, setMaxMessages] = useState(false)
 
 
@@ -177,19 +177,30 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user }) {
     // messages not loading properly, when page loads, they all load even though they are only supposed to start loading when the user scrolls high enough
     // FIX START
     useEffect(async () => {
-        const socket = io()
-        socket.emit('currentGroupChange', { groupId: currentGroup.id, accessToken: jsCookie.get('accessToken') }, (msgs) => {
-            if (!msgs) return setMessages([])
-            setMessages(msgs)
-        })
-    }, [currentGroup])
-    useEffect(() => {
-            console.log(messages)
-            if (messages.length <= 50) { // only trigger the initial scroll down when the messages first load, on the proceeding loads, don't scroll down
-            const msgsContainer = document.querySelector(`.${styles.messages}`)
-            msgsContainer.scrollTo({ top: msgsContainer.scrollHeight })
+        if (!messages.find(grp => grp.id === currentGroup.id) && !msgsLoading.includes(currentGroup.id)) {
+            const e = setInterval(() => {
+                console.log(messages && (messages.find(grp => grp.id === currentGroup.id) || false) && !msgsLoading.includes(currentGroup.id), msgsLoading, currentGroup.id)
+            }, 1000)
+            // push group id to loading so that it doesn't load again
+            msgsLoading.push(currentGroup.id)
+            setMsgsLoading(msgsLoading)
+
+            const socket = io()
+            socket.emit('currentGroupChange', { groupId: currentGroup.id, accessToken: jsCookie.get('accessToken') }, (msgs) => {
+                if (!msgs) return;
+                // push the messages to the messages array w/ group id
+                messages.push({ messages: [...msgs], id: currentGroup.id })
+                setMessages(messages)
+                // remove group from loading array
+                msgsLoading.splice(msgsLoading.indexOf(currentGroup.id), 1)
+                setMsgsLoading(msgsLoading)
+            })
         }
-    }, [messages])
+        // when messages load, scroll div all the way to the bottom
+        const msgsContainer = document.querySelector(`.${styles.messages}`)
+        msgsContainer.scrollTo({ top: msgsContainer.scrollHeight })
+    }, [currentGroup])
+
 
     // scrolling
     useEffect(() => {
@@ -200,12 +211,12 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user }) {
             const scrollHeight = e.target.scrollHeight
             const clientHeight = e.target.clientHeight
 
-            // load more messages
-            if (scrollTop <= (scrollHeight - clientHeight) * 0.2) {
-                if (!maxMessages) setMsgsLoading(true)
-            } else {
-                if (!maxMessages) setMsgsLoading(true)
-            }
+            // // load more messages
+            // if (scrollTop <= (scrollHeight - clientHeight) * 0.2) {
+            //     if (!maxMessages) setMsgsLoading(true)
+            // } else {
+            //     if (!maxMessages) setMsgsLoading(true)
+            // }
 
             // show button to scroll back to bottom
             if (scrollTop <= scrollHeight - (clientHeight * 5)) {
@@ -216,31 +227,37 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user }) {
         })
     }, [])
 
-    useEffect(() => {
-        const socket = io()
+    // useEffect(() => {
+    //     const socket = io()
 
-        if (msgsLoading) {
-            socket.emit('loadMessages', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, curMsgs: messages.length }, (newMsgs) => {
-                if (newMsgs && newMsgs.length > 0) setMessages(newMsgs.concat(messages)) // new messages are added to the top
-                else setMaxMessages(true)
-            })
-        }
-    }, [msgsLoading])
+    //     if (msgsLoading) {
+    //         socket.emit('loadMessages', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, curMsgs: messages.length }, (newMsgs) => {
+    //             if (newMsgs && newMsgs.length > 0) setMessages(newMsgs.concat(messages)) // new messages are added to the top
+    //             else setMaxMessages(true)
+    //         })
+    //     }
+    // }, [msgsLoading])
     // FIX END
 
 
     return (
-
         <div className={styles.main}>
             {/* messages display */}
-            <div className={styles.messages}>
+            <div className={styles.messages} >
                 {/* load 100 messages at a time */}
-                {
-                    messages.map(message => {
+                {/* FIX: messages state change wont change the terenary operator here */}
+                {/* {
+                    messages.find(grp => grp.id === currentGroup.id).messages.map(message => {
                         return (
-                            <Message key={message.id} message={message} user={user} />
+                            <Message key={Math.random()} message={message} user={user} />
                         )
                     })
+                } */}
+                
+                {
+                    messages.find(grp => grp.id === currentGroup.id) ?
+                        <>asiudhiausdhui</> :
+                        <>asd</>
                 }
             </div>
             {/* scroll down button */}
@@ -265,9 +282,9 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user }) {
                     (e) => {
                         // TODO: send message & or files HERE
                         e.preventDefault()
-                        const socket = io()
+                        // const socket = io()
                         const formData = new FormData(e.target)
-                        console.log(formData)
+                        // console.log(formData)
                     }
                 }>
                     <input id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
