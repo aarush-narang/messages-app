@@ -26,7 +26,9 @@ export default function Home({ data, csrfToken }) {
         // current group chat selected
         const [currentGroup, setCurrentGroup] = useState(null)
         const [groups, setGroups] = useState(null)
+        const msgsState = useState([])
         const [user, setUser] = useState(null)
+        const [socket, setSocket] = useState(io()); // initialize socket connection to server
 
         useEffect(() => {
             window.addEventListener('popstate', (e) => {
@@ -70,7 +72,7 @@ export default function Home({ data, csrfToken }) {
                 <PageLoading />
             )
         }
-        
+
         return (
             <div>
                 <Head>
@@ -79,9 +81,9 @@ export default function Home({ data, csrfToken }) {
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
                 <div className={styles.container}>
                     {/* group chat selection */}
-                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} />
+                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} socket={socket} />
                     {/* chat area */}
-                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} />
+                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} msgsState={msgsState} socket={socket} />
                 </div>
             </div>
 

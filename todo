@@ -1,6 +1,5 @@
 # PRIORITY:
-- BUGS:
-    - when group is changed through popstate, messages stay the same as the first popstate/page load
+- replace all alerts on frontend with modals
 - create context menu for groups, messages, people, etc. (like discord) create event listener on doc and check what was right clicked and based off that change the context menu, add read receipts to this. [Example for custom contextmenu](https://itnext.io/how-to-create-a-custom-right-click-menu-with-javascript-9c368bb58724)
 - load X messages at a time, when they reach the top of the scroll, load more so it doesn't use too much bandwidth
 - right click context menu is also the same as the ... on each message, changed for a message type

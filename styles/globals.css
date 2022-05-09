@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Urbanist&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Icons+Outlined&display=swap');
+@import url('https://fonts.sandbox.google.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 /* theme colors */
 /* 
@@ -27,6 +28,9 @@ https://coolors.co/0e3b43-22454b-354f52-6f908e-a3bbad-002e2c-357266-84a98c
 
     --font-color: var(--cyan-tone-light);
     --font-color-secondary: var(--cyan-tone-dark);
+
+    --icons-font-family: 'Material Icons Outlined';
+    --symbols-font-family: 'Material Symbols Outlined';
 
     --header-height: 60px;
 }

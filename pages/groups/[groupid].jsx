@@ -38,7 +38,9 @@ export default function Groups({ data, csrfToken }) {
 
         // data
         const [groups, setGroups] = useState(null)
+        const msgsState = useState([])
         const [user, setUser] = useState(null)
+        const [socket, setSocket] = useState(io()); // initialize socket connection to server
 
         // socket connection
         const [loading, setLoading] = useState(true)
@@ -96,9 +98,9 @@ export default function Groups({ data, csrfToken }) {
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
                 <div className={styles.container}>
                     {/* group chat selection */}
-                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} />
+                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} socket={socket} />
                     {/* chat area */}
-                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} />
+                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} msgsState={msgsState} socket={socket} />
                 </div>
             </div>
         );

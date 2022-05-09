@@ -2,6 +2,7 @@ import { Server } from 'socket.io'
 import { QueryGroup, QueryUser, UpdateUser } from '../../../../lib/mongo'
 import { apiHandler } from '../../../../lib/helpers/api-handler'
 import { decodeJWT } from '../../../../lib/helpers/jwt-middleware'
+import SnowflakeID from 'snowflake-id'
 
 
 /*
@@ -17,7 +18,10 @@ import { decodeJWT } from '../../../../lib/helpers/jwt-middleware'
 const ioHandler = (req, res) => {
     if (!res.socket.server.io) {
         const io = new Server(res.socket.server)
-
+        const snowflake = new SnowflakeID({
+            mid: 42,
+            offset : Date.now()
+        })
 
 
         // connection and messages here
@@ -36,7 +40,7 @@ const ioHandler = (req, res) => {
                     const groupInfo = []
                     for (let i = 0; i < groups.length; i++) {
                         const group = await QueryGroup({ groupId: groups[i].id })
-                        const filteredGroup = Object.entries(group).filter(([key, value]) => !['_id'].includes(key))
+                        const filteredGroup = Object.entries(group).filter(([key, value]) => !['_id', 'messages'].includes(key))
                         groupInfo.push(Object.fromEntries(filteredGroup))
                     }
                     cb({ groups: groupInfo, user: userInfo })
@@ -50,8 +54,8 @@ const ioHandler = (req, res) => {
                     const groupId = data.groupId
                     const group = await QueryGroup({ groupId })
                     if (group.members.includes(user.uid)) {
-                        // const messages = [...group.messages].slice(0, 50)
-                        const messages = [...group.messages]
+                        const messages = [...group.messages].slice(group.messages.length - 20, group.messages.length)
+                        // const messages = [...group.messages]
                         const authors = []
 
                         for (const message of messages) {
@@ -83,8 +87,11 @@ const ioHandler = (req, res) => {
                     const groupId = data.groupId
                     const group = await QueryGroup({ groupId })
                     if (group.members.includes(user.uid)) {
-                        const messages = [...group.messages].slice(data.curMsgs || 0, (data.curMsgs || 0) + 50)
-                        if(messages.length == 0) return cb(null)
+                        const len = group.messages.length
+                        const ct = data.curMsgsCt
+                        const MESSAGE_BATCH_SIZE = ct * 0.5
+                        const messages = [...group.messages].slice(len - ct - (len - ct < MESSAGE_BATCH_SIZE ? len - ct : MESSAGE_BATCH_SIZE), len - ct)
+                        if (messages.length == 0) return cb(null)
                         const authors = []
 
                         for (const message of messages) {
@@ -135,11 +142,23 @@ const ioHandler = (req, res) => {
             // when any stalable data changes, in the corresponding socket event, send back new data and update client side
             // ex: when a group is joined, send back the new group data in the groupJoin event & update client side
             // message events
-            socket.on('fileUpload', () => {
-
-            })
-            socket.on('messageCreate', () => {
+            socket.on('messageCreate', (data, cb) => {
                 // when a message is sent, broadcast it to all users in the socket room and update the message in the database
+                const token = data.accessToken
+                const user = decodeJWT(token)
+                if (!user) return
+                else {
+                    const groupId = data.groupId
+
+                    const id = Number(snowflake.generate())
+                    const author = user.uid
+                    const message = data.message
+                    const createdAt = Date.now()
+                    const edited = false
+                    const read = []
+
+                    const newMessage = { id, author, message, createdAt, edited, read }
+                }
             })
             socket.on('messageEdit', () => {
 

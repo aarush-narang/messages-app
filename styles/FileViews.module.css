@@ -1,0 +1,130 @@
+/* files */
+.messageFile {
+    margin-top: 10px;
+}
+
+/* image file */
+img.messageFile {
+    width: 100px;
+}
+
+/* text file */
+pre.messageFile .preHeader {
+    display: flex;
+    flex-direction: column;
+}
+
+pre.messageFile .preHeader .preTitle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+pre.messageFile .preButtons {
+    display: flex;
+    align-items: center;
+    color: hsl(186, 46%, 63%);
+}
+
+pre.messageFile .preButton {
+    font-family: var(--symbols-font-family);
+    font-size: 20px;
+    user-select: none;
+    cursor: pointer;
+    margin-left: 4px;
+    transition: 200ms ease;
+}
+
+pre.messageFile .preButton:hover {
+    transform: scale(1.1);
+    opacity: 0.9;
+}
+
+pre.messageFile {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: rgb(21, 50, 56);
+    max-height: 120px;
+    border-radius: 3px;
+    padding: 14px 20px;
+}
+
+pre.messageFile .divider {
+    display: inline-block;
+    border-top: 1px solid hsl(190, 45%, 65%);
+    width: 100%;
+    margin: 14px 0;
+}
+
+pre.messageFile .preFileSize {
+    font-size: 12px;
+    margin-left: 8px;
+    margin-right: 4px;
+}
+
+/* audio file */
+audio.messageFile {
+    max-width: 100%;
+}
+
+/* message file link */
+.fileViewContainer {
+    display: grid;
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr 3fr 1fr;
+
+    max-width: 200px;
+    padding: 8px 6px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid hsl(190, 35%, 55%);
+
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.fileImage,
+.fileDownload {
+    font-family: var(--symbols-font-family);
+    font-size: 32px;
+    color: var(--font-color);
+    text-align: center;
+    user-select: none;
+}
+
+.fileDownload {
+    cursor: pointer;
+    transition: 400ms cubic-bezier(0.64, 0.36, 0, 1.1);
+}
+
+.fileDownload:hover {
+    transform: translateY(-2px);
+    opacity: 0.8;
+}
+
+.fileInfo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 0 6px;
+}
+
+.fileInfo .fileName {
+    font-size: 16px;
+    margin-bottom: 2px;
+    color: hsl(188, 69%, 79%);
+    text-decoration: underline;
+}
+
+.fileInfo .fileName:visited {
+    color: hsl(188, 39%, 59%);
+    text-decoration: underline;
+}
+
+.fileInfo .fileSize {
+    font-size: 11px;
+}

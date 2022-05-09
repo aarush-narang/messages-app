@@ -8,7 +8,7 @@
     display: grid;
     grid-template-columns: 1fr 50px;
     background-color: #215661;
-    
+
     min-width: 350px;
     max-width: 700px;
 
@@ -144,7 +144,7 @@
 }
 
 .joinGroup {
-    font-family: Material Icons Outlined;
+    font-family: var(--icons-font-family);
     font-size: 80px;
     width: fit-content;
     height: fit-content;
@@ -182,11 +182,12 @@
     justify-content: center;
     align-items: center;
     background-color: hsl(189, 66%, 11%);
-    
+
     min-width: max-content;
     max-width: 100%;
     padding: 10px 9px;
 }
+
 .messageInputForm {
     display: grid;
     position: relative;
@@ -199,6 +200,7 @@
     width: 100%;
     height: 100%;
 }
+
 .messageTextArea {
     justify-self: center;
     resize: none;
@@ -221,14 +223,16 @@
     padding: 1px 5px;
     margin: 0 5px;
 }
+
 /* max character limit */
 .messageTextContainer {
     color: var(--font-color);
 }
+
 .messageTextContainer::after {
     content: attr(data-length);
     position: absolute;
-    
+
     font-family: Urbanist;
     color: inherit;
     font-size: 16px;
@@ -238,6 +242,7 @@
     right: 10px;
     margin-right: 4px;
 }
+
 .messageTextArea::placeholder {
     content: attr(placeholder);
     color: var(--font-color);
@@ -258,7 +263,7 @@
     aspect-ratio: 1;
 
     background-color: hsl(190, 60%, 15%);
-    font-family: Material Icons Outlined;
+    font-family: var(--icons-font-family);
     font-size: 150%;
     color: hsl(171, 30%, 61%);
 
@@ -277,7 +282,7 @@
     cursor: pointer;
     border: none;
     outline: none;
-    font-family: Material Icons Outlined;
+    font-family: var(--icons-font-family);
     font-size: 150%;
     color: hsl(171, 30%, 61%);
 
@@ -300,6 +305,13 @@
 }
 
 /* message display area */
+.msgsLoading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
 /* scroll down btn */
 .scrollContainer {
     display: flex;
@@ -317,22 +329,26 @@
     opacity: 0.6;
     transition: 150ms ease;
 }
+
+@media screen and (max-height: 300px) {
+    .scrollContainer {
+        display: none;
+    }
+}
+
 .scrollContainer:hover {
     opacity: 1;
     box-shadow: 0 0 14px 1px #062b31;
 }
+
 .scrollContainer:active {
     transform: scale(0.98);
 }
+
 .overflowButton {
-    font-family: Material Icons Outlined;
+    font-family: var(--icons-font-family);
     font-size: 30px;
     color: var(--font-color-secondary);
-
-}
-.scrollText {
-    margin: 0 2px;
-color: var(--font-color);
 }
 
 /* messages */
@@ -347,6 +363,7 @@ color: var(--font-color);
     max-height: 100%;
     margin-top: auto;
 }
+
 .message {
     position: relative;
     width: 80%;
@@ -358,6 +375,7 @@ color: var(--font-color);
 
     padding: 12px 14px 14px 14px;
 }
+
 .messageHeader {
     display: flex;
     flex-direction: row;
@@ -366,15 +384,18 @@ color: var(--font-color);
     width: 100%;
     padding: 2px 0;
 }
+
 .messageAuthor {
     margin: 0;
     align-self: center;
 }
+
 .messageContainer {
     display: flex;
     flex-direction: column;
     width: 100%;
 }
+
 .messageIcon {
     width: 50px;
     height: 50px;
@@ -382,8 +403,12 @@ color: var(--font-color);
     margin-right: 14px;
     align-self: flex-start;
 }
+
 .messageBody {
-    margin-top: 6px;
+    padding: 5px 0;
+}
+
+.messageContent {
     font-size: 15px;
 }
 
@@ -392,24 +417,29 @@ color: var(--font-color);
     display: flex;
     flex-direction: row;
 }
-.messageInfo > *:not(:last-child) {
+
+.messageInfo>*:not(:last-child) {
     margin-right: 10px;
 }
+
 .messageInfoSect {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: flex-end;
 }
+
 .messageTS {
     font-size: 12px;
 }
+
 .messageEdited {
     font-size: 10px;
     opacity: 0.8;
 }
+
 .messageOptions {
-    font-family: Material Icons Outlined;
+    font-family: var(--icons-font-family);
     font-size: 18px;
     border: 1px solid;
     border-radius: 100%;
@@ -420,30 +450,36 @@ color: var(--font-color);
     user-select: none;
     transition: 150ms ease;
 }
+
 .messageOptions:hover {
     opacity: 0.7;
 }
+
 .messageOptions:active {
     transform: scale(0.95);
 }
+
 /* spacing between messages */
-.message[data-sender="true"] + .message[data-sender="false"],
-.message[data-sender="false"] + .message[data-sender="true"] {
+.message[data-sender="true"]+.message[data-sender="false"],
+.message[data-sender="false"]+.message[data-sender="true"] {
     margin-top: 30px;
 }
-.message[data-sender="true"] + .message[data-sender="true"],
-.message[data-sender="false"] + .message[data-sender="false"] {
+
+.message[data-sender="true"]+.message[data-sender="true"],
+.message[data-sender="false"]+.message[data-sender="false"] {
     margin-top: 6px;
 }
 
 /* induvidual message bubble styles, based on author */
-.message[data-sender="true"] { /* also make message bkg color slightly diff than not sender */
+.message[data-sender="true"] {
+    /* also make message bkg color slightly diff than not sender */
     align-self: flex-end;
     border-radius: 14px 14px 1px 14px;
     color: #a5e4ee;
     background-color: hsla(191, 45%, 40%, 0.902);
     margin-left: auto;
 }
+
 .message[data-sender="false"] {
     align-self: flex-start;
     border-radius: 14px 14px 14px 1px;
