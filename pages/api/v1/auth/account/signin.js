@@ -21,7 +21,7 @@ async function SignInHandler(req, res) {
 
     const user = await QueryUser({ user: { email, password } });
     if (!user) return res.status(404).send()
-    
+
     const accessToken = generateAccessToken({ token: user.token, username: user.username, uid: user.uid })
     const refreshToken = generateRefreshToken({ rb: crypto.randomBytes(32).toString('hex'), uid: user.uid })
     // when user logs in, look for their current ip in previous sessions and restore it if it exists

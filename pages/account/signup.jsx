@@ -55,13 +55,13 @@ export default function SignUp({ csrfToken }) {
     const [loading, setLoading] = useState(false);
 
     return (
-        <div>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow:'auto' }}>
             <Head>
                 <title>Sign Up</title>
             </Head>
             <FormPagesHeader />
             <div className={styles.form_container} >
-                <form className={styles.form} style={{ minHeight: '80vh' }} onSubmit={
+                <form className={styles.form} onSubmit={
                     async (e) => {
                         e.preventDefault();
                         setLoading(true);

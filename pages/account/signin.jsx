@@ -22,13 +22,13 @@ export default function SignIn({ csrfToken }) {
     }
     const [loading, setLoading] = useState(false);
     return (
-        <div>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow:'auto' }}>
             <Head>
                 <title>Sign In</title>
             </Head>
             <FormPagesHeader />
-            <div className={styles.form_container}>
-                <form className={styles.form} style={{ minHeight: '58vh' }} onSubmit={
+            <div className={styles.form_container} style={{ marginBottom: '120px' }}>
+                <form className={styles.form} onSubmit={
                     async (e) => {
                         e.preventDefault();
                         setLoading(true);
@@ -55,7 +55,13 @@ export default function SignIn({ csrfToken }) {
                                 headers: {
                                     'Content-Type': 'application/json'
                                 }
-                            }).then(res => res.text())
+                            }).then(res => res.text()).catch(() => null)
+                            if(!ip) {
+                                setError('Please enable tracking in your browser in order to log in.');
+                                changeDataState(e.target[0], 'error');
+                                changeDataState(e.target[1], 'error');
+                                return setLoading(false);
+                            }
                             data.ip = ip;
                             const res = await fetch('/api/v1/auth/account/signin', {
                                 method: 'POST',

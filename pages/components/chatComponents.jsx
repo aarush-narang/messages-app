@@ -1,25 +1,25 @@
+// Styles
 import styles from "../../styles/Home.module.css";
 import videoStyles from "../../styles/VideoOverlay.module.css";
 import audioStyles from "../../styles/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews.module.css";
-import jsCookie from "js-cookie";
+// Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
-import { useDebounce, shortenName, formatBytes } from "./util";
+import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File } from "./util";
 import { Spinner } from "./inputComponents";
+// Util Packages
+import jsCookie from "js-cookie";
 import moment from "moment";
 import { marked } from "marked";
-import e from "cors";
 
 const SPINNER_COLOR = '#2e8283'
 const MAX_FILE_SIZE = 8; // MB
 
-
+// Main Components For Chat
 export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // if current group is not in groups, render spinner
         return (
-            <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
-                <Spinner color={SPINNER_COLOR} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
-            </div>
+            <PageLoading />
         )
     }
     groups.sort((a, b) => a.order - b.order)
@@ -43,7 +43,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
     // Sends updated group order to server
     useDebounce(async () => { // debounce the order of the groups & update the in db
         // TODO: pop up a modal
-        socket.emit('updateGroupOrder', { accessToken: jsCookie.get('accessToken'), order })
+        socket.emit('updateGroupOrder-server', { accessToken: jsCookie.get('accessToken'), order })
     }, 1000, [order])
 
     useEffect(() => { // update the order of the groups (visually) when the order changes
@@ -164,11 +164,10 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
         </div>
     );
 }
-
 export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState, socket }) {
-    if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // spinner is already rendered in the groups component
+    if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) {
         return (
-            <></>
+            <PageLoading />
         )
     }
     if (!currentGroup) return <NoGroupSelected />
@@ -192,7 +191,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             // push group id to loading so that it doesn't load again
             setMsgsLoading([currentGroup.id].concat(msgsLoading))
 
-            socket.emit('currentGroupChange', { groupId: currentGroup.id, accessToken: jsCookie.get('accessToken') }, (msgs) => {
+            socket.emit('currentGroupChange-server', { groupId: currentGroup.id, accessToken: jsCookie.get('accessToken') }, (msgs) => {
                 if (!msgs) return;
                 // push the messages to the messages array w/ group id
                 setMessages([{ messages: [...msgs], id: currentGroup.id }].concat(messages))
@@ -209,7 +208,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         const curGrpMessages = messages.find(grp => grp.id === currentGroup.id)
 
         if (msgsLoading.includes(currentGroup.id) && curGrpMessages) {
-            socket.emit('loadMessages', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, curMsgsCt: curGrpMessages.messages.length }, (newMsgs) => {
+            socket.emit('loadMessages-server', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, curMsgsCt: curGrpMessages.messages.length }, (newMsgs) => {
                 // new messages are added to the top
                 if (newMsgs && newMsgs.length > 0) {
                     const newAppendedMessages = newMsgs.concat(curGrpMessages.messages)
@@ -233,6 +232,14 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             })
         }
     }, [msgsLoading.includes(currentGroup.id)])
+
+
+    useEffect(() => {
+        socket.on('messageCreate-client', (msg) => {
+            console.log('messageCreate-client', msg)
+            alert('messageCreate-client')
+        })
+    }, [])
 
     return (
         <div className={styles.main}>
@@ -292,15 +299,28 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             {
                 img.map(i => {
                     const { base64, name } = i
-                    console.log(Buffer.from(base64, 'base64'))
-                    console.log(name)
-                    return <img key={Math.random()} width={'30px'} height={'30px'} src={base64} alt="img" />
+                    if (!base64) return null
+                    const mimeType = base64.split(',')[0].split(';')[0].split(':')[1]
+                    const data = base64.split(',')[1]
+                    const fileSize = data ? formatBytes((data * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0
+                    const type = mimeType.split('/')[1]
+                    switch (type) {
+                        case 'apng':
+                        case 'avif':
+                        case 'jpeg':
+                        case 'png':
+                        case 'svg':
+                        case 'webp':
+                            return <img key={data} className={fileStyles.messageFile} alt={name} src={base64} />
+                        default:
+                            return <DefaultFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={base64} />
+                    }
                 })
             }
             {/* message input */}
             <div className={styles.messageInputContainer}>
                 <form className={styles.messageInputForm} encType={"multipart/form-data"} onSubmit={
-                    (e) => {
+                    async (e) => {
                         e.preventDefault()
 
                         // get formdata
@@ -321,27 +341,24 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         for (let i = 0; i < files.length; i++) {
                             fileObjs.push({
                                 name: files[i].name,
-                                data: files[i]
+                                data: files[i],
+                                mimeType: files[i].type
                             })
                         }
-                        console.log(fileObjs)
                         formDataObj.files = fileObjs
 
+                        console.log(formDataObj)
                         // send message
-                        socket.emit('messageCreate', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, message: formDataObj }, (msg) => {
-
-                        })
+                        await socket.emit('messageCreate-server', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, message: formDataObj })
+                        alert('Message sent!')
                         // clear form and images
                         setImg([])
                         e.target.reset()
                     }
                 }>
-                    <input name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onDrop={(e) => {
-                        e.preventDefault()
-                        console.log(e)
-                    }} onInput={(e) => {
+                    <input name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
                         // TODO: validate file size and (look at todo below)
-                        const files = [...e.target.files]
+                        const files = [...img, ...e.target.files]
                         const totalSizeBytes = (files.reduce((acc, file) => {
                             return acc + file.size
                         }, 0))
@@ -423,20 +440,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         </div>
     )
 }
-
 export function Message({ message, user }) {
-    const [textFileState, setTextFileState] = useState(false)
-    function downloadBase64File(data, fileName) {
-        const linkSource = data;
-        const downloadLink = document.createElement('a');
-        document.body.appendChild(downloadLink);
-
-        downloadLink.href = linkSource;
-        downloadLink.target = '_self';
-        downloadLink.download = fileName;
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    }
     return (
         <div id={message.id} className={styles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
             <img className={styles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
@@ -456,12 +460,12 @@ export function Message({ message, user }) {
                     <div className={styles.messageContent}>{message.message.content}</div>
                     <div className={styles.messageFiles}>{message.message.files.map((fileInfo) => {
                         const data = Buffer.isBuffer(fileInfo.data) ? data.toString('base64') : fileInfo.data
+                        const fileSize = data ? calculateFileSize(data) : 0 // base64 size formula
                         const name = fileInfo.name
 
-                        const mimeType = data.split(':')[1].split(';')[0]
+                        const mimeType = fileInfo.mimeType
                         const generalType = mimeType.split('/')[0]
                         const specificType = mimeType.split('/')[1]
-                        const content = data.split(',')[1]
 
                         switch (true) {
                             case generalType === 'image' && specificType === 'apng':
@@ -470,48 +474,26 @@ export function Message({ message, user }) {
                             case generalType === 'image' && specificType === 'png':
                             case generalType === 'image' && specificType === 'svg':
                             case generalType === 'image' && specificType === 'webp':
-                                return <img key={data} className={fileStyles.messageFile} src={data} alt={name} />
+                                return <ImageFileView key={data} alt={name} data={data} name={name} mimeType={mimeType} fileSize={fileSize} />
                             case generalType === 'audio' && specificType === 'ogg':
                             case generalType === 'audio' && specificType === 'mp3':
                             case generalType === 'audio' && specificType === 'wav':
                             case generalType === 'audio' && specificType === 'mpeg':
-                                return <AudioFileView key={data} data={data} mimeType={mimeType} name={name} />
+                                return <AudioFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
                             case generalType === 'video' && specificType === 'ogg':
                             case generalType === 'video' && specificType === 'mp4':
                             case generalType === 'video' && specificType === 'webm':
-                                return <VideoFileView key={data} data={data} name={name} mimeType={mimeType} />
-                            case generalType === 'text' && specificType === 'plain':
-                                const fileSize = data ? formatBytes((data.split(',')[1].length * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0 // base64 size formula
-                                return (
-                                    <pre key={data} wrap={"true"} className={fileStyles.messageFile}>
-                                        <div className={fileStyles.preHeader}>
-                                            <div className={fileStyles.preTitle}>
-                                                <b style={{ fontSize: '18px' }}>{name.split('.').length > 1 ? name : name + '.txt'}</b>
-                                                <div className={fileStyles.preButtons}>
-                                                    <div className={fileStyles.preButton} onClick={() => {
-                                                        setTextFileState(!textFileState)
-                                                    }}>{textFileState ? 'unfold_less' : 'unfold_more'}</div>
-                                                    <div className={fileStyles.preButton} onClick={() => downloadBase64File(data, name)}>file_download</div>
-                                                    <div className={fileStyles.preFileSize}>{fileSize}</div>
-                                                </div>
-                                            </div>
-                                            <span className={fileStyles.divider}></span>
-                                        </div>
-                                        {
-                                            textFileState ?
-                                                Buffer.from(content, 'base64').toString('utf-8') :
-                                                null
-                                        }
-                                    </pre>
-                                )
-                            case generalType === 'text' && specificType === 'markdown': // TODO: markdown viewer
-                                return (
-                                    <div>
-                                        {marked.parse(Buffer.from(content, 'base64').toString('utf-8'))}
-                                    </div>
-                                )
+                                return <VideoFileView key={data} name={name} mimeType={mimeType} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                            case generalType === 'text':
+                                return <TextFileView key={data} data={data} fileSize={fileSize} mimeType={mimeType} name={name} />
+                            // case generalType === 'text' && specificType === 'markdown': // TODO: markdown viewer
+                            //     return (
+                            //         <div>
+                            //             {marked.parse(Buffer.from(`data:${mimeType};base64,${data}`, 'base64').toString('utf-8'))}
+                            //         </div>
+                            //     )
                             default:
-                                return <DefaultFileView key={data} mimeType={mimeType} data={data} name={name} />
+                                return <DefaultFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
                         }
                     })}</div>
                 </div>
@@ -520,8 +502,33 @@ export function Message({ message, user }) {
     )
 }
 
-export function VideoFileView({ data, name, mimeType }) {
-    const fileSize = data ? formatBytes((data.split(',')[1].length * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0 // base64 size formula
+// Message File Views
+export function TextFileView({ name, mimeType, data, fileSize }) {
+    const [textFileState, setTextFileState] = useState(false)
+    return (
+        <pre key={data} wrap={"true"} className={fileStyles.messageFile}>
+            <div className={fileStyles.preHeader}>
+                <div className={fileStyles.preTitle}>
+                    <b style={{ fontSize: '18px' }}>{shortenFileName(name)}</b>
+                    <div className={fileStyles.preButtons}>
+                        <div className={fileStyles.preButton} onClick={() => {
+                            setTextFileState(!textFileState)
+                        }}>{textFileState ? 'unfold_less' : 'unfold_more'}</div>
+                        <div className={fileStyles.preButton} onClick={() => downloadBase64File(`data:${mimeType};base64,${data}`, name)}>file_download</div>
+                        <div className={fileStyles.preFileSize}>{fileSize}</div>
+                    </div>
+                </div>
+                <span className={fileStyles.divider}></span>
+            </div>
+            {
+                textFileState ?
+                    Buffer.from(data, 'base64').toString('utf-8') :
+                    null
+            }
+        </pre>
+    )
+}
+export function VideoFileView({ data, name, mimeType, fileSize }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
     const [fullscreen, _setFullscreen] = useState(false) // true = fullscreen, false = not fullscreen
@@ -540,16 +547,6 @@ export function VideoFileView({ data, name, mimeType }) {
     const currentTimeRef = useRef(currentTime)
     const durationRef = useRef(duration)
 
-    function downloadBase64File(data, fileName) {
-        const downloadLink = document.createElement('a');
-        document.body.appendChild(downloadLink);
-
-        downloadLink.href = data;
-        downloadLink.target = '_self';
-        downloadLink.download = fileName;
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    }
     const setFullscreen = (value) => {
         fullscreenRef.current = value
         _setFullscreen(value)
@@ -673,10 +670,10 @@ export function VideoFileView({ data, name, mimeType }) {
             <div className={videoStyles.videoInformationContainer}>
                 <div className={videoStyles.videoInformation}>
                     <div className={videoStyles.videoHeader}>
-                        <div className={videoStyles.videoFileName}>{name}</div>
-                        <div className={videoStyles.videoFileSize}>{fileSize}</div>
+                        <div className={videoStyles.videoFileName} title={name}>{shortenFileName(name, 20)}</div>
+                        <div className={videoStyles.videoFileSize} title={fileSize}>{fileSize}</div>
                     </div>
-                    <div className={videoStyles.videoDownload} onClick={() => downloadBase64File(data, name)}>file_download</div>
+                    <div className={videoStyles.videoDownload} title={`Download ${name}`} onClick={() => downloadBase64File(data, name)}>file_download</div>
                 </div>
             </div>
             <div className={videoStyles.videoControlsContainer}>
@@ -757,9 +754,7 @@ export function VideoFileView({ data, name, mimeType }) {
         </div>
     )
 }
-
-export function AudioFileView({ data, name, mimeType }) {
-    const fileSize = data ? formatBytes((data.split(',')[1].length * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0 // base64 size formula
+export function AudioFileView({ data, name, mimeType, fileSize }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
     const [volume, _setVolume] = useState(1) // 0 - 1
@@ -775,17 +770,6 @@ export function AudioFileView({ data, name, mimeType }) {
     const playbackSpeedRef = useRef(playbackSpeed)
     const currentTimeRef = useRef(currentTime)
     const durationRef = useRef(duration)
-
-    function downloadBase64File(data, fileName) {
-        const downloadLink = document.createElement('a');
-        document.body.appendChild(downloadLink);
-
-        downloadLink.href = data;
-        downloadLink.target = '_self';
-        downloadLink.download = fileName;
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    }
 
     const setMuted = (value) => {
         mutedRef.current = value
@@ -912,7 +896,7 @@ export function AudioFileView({ data, name, mimeType }) {
                     </ul>
                     <div className={audioStyles.currentPlayBackSpeed}>{playbackSpeed}x</div>
                 </div>
-                <div className={audioStyles.audioFileDownload} onClick={(e) => {
+                <div className={audioStyles.audioFileDownload} title={`Download ${name}`} onClick={(e) => {
                     downloadBase64File(data, name)
                 }}>file_download</div>
             </div>
@@ -921,30 +905,19 @@ export function AudioFileView({ data, name, mimeType }) {
         </div>
     )
 }
-
-export function DefaultFileView({ name, mimeType, data }) {
-    function downloadBase64File(data, fileName) {
-        const downloadLink = document.createElement('a');
-        document.body.appendChild(downloadLink);
-
-        downloadLink.href = data;
-        downloadLink.target = '_self';
-        downloadLink.download = fileName;
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    }
-
-    const fileSize = data ? formatBytes((data.split(',')[1].length * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0 // base64 size formula
-    const fileName = name.split('.').length > 1 ? name : name + '.' + mimeType.split('/')[1]
+export function ImageFileView({ data, name, mimeType, fileSize }) {
+    return <img className={fileStyles.messageFile} alt={name} src={`data:${mimeType};base64,${data}`} title={name} />
+}
+export function DefaultFileView({ data, name, mimeType, fileSize }) {
     return (
         <div className={fileStyles.fileViewContainer}>
             <div className={fileStyles.fileImage}>draft</div>
             <div className={fileStyles.fileInfo}>
-                <a className={fileStyles.fileName} href={data} download={fileName} onClick={(e) => {
+                <a className={fileStyles.fileName} title={name} href={data} download={name} onClick={(e) => {
                     e.preventDefault()
                     downloadBase64File(data, name)
-                }}>{fileName}</a>
-                <div className={fileStyles.fileSize}>{fileSize}</div>
+                }}>{shortenFileName(name, 8)}</a>
+                <div className={fileStyles.fileSize} title={fileSize}>{fileSize}</div>
             </div>
             <div className={fileStyles.fileDownload} onClick={(e) => {
                 downloadBase64File(data, name)
@@ -953,10 +926,10 @@ export function DefaultFileView({ name, mimeType, data }) {
     )
 }
 
+// Extra
 export function NoGroupSelected() {
     return <></>
 }
-
 export function PageLoading() {
     return (
         <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>

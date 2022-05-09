@@ -1,9 +1,9 @@
 import { Server } from 'socket.io'
-import { QueryGroup, QueryUser, UpdateUser } from '../../../../lib/mongo'
+import { QueryGroup, QueryUser, UpdateUser, UpdateGroup } from '../../../../lib/mongo'
 import { apiHandler } from '../../../../lib/helpers/api-handler'
 import { decodeJWT } from '../../../../lib/helpers/jwt-middleware'
 import SnowflakeID from 'snowflake-id'
-
+import { calculateFileSize } from '../../../components/util'
 
 /*
     Events:
@@ -26,7 +26,7 @@ const ioHandler = (req, res) => {
 
         // connection and messages here
         io.on('connection', socket => {
-            socket.on('init', async (authToken, cb) => { // send initial data to client
+            socket.on('init-server', async (authToken, cb) => { // send initial data to client
                 const user = decodeJWT(authToken)
                 if (!user) return cb(null)
                 else {
@@ -37,6 +37,15 @@ const ioHandler = (req, res) => {
 
                     const groups = [...dbuser.groups]
 
+                    // subscribe to groups
+                    for(const group of groups) {
+                        try {
+                            await socket.join((group.id))
+                        } catch (error) {
+                            console.log(`${user.username} failed to join group ${group.id}`)
+                        }
+                    }
+
                     const groupInfo = []
                     for (let i = 0; i < groups.length; i++) {
                         const group = await QueryGroup({ groupId: groups[i].id })
@@ -46,7 +55,7 @@ const ioHandler = (req, res) => {
                     cb({ groups: groupInfo, user: userInfo })
                 }
             })
-            socket.on('currentGroupChange', async (data, cb) => { // when current group changes, send back messages data (non-stale)
+            socket.on('currentGroupChange-server', async (data, cb) => { // when current group changes, send back messages data (non-stale)
                 const token = data.accessToken
                 const user = decodeJWT(token)
                 if (!user) return cb(null)
@@ -54,8 +63,8 @@ const ioHandler = (req, res) => {
                     const groupId = data.groupId
                     const group = await QueryGroup({ groupId })
                     if (group.members.includes(user.uid)) {
-                        const messages = [...group.messages].slice(group.messages.length - 20, group.messages.length)
-                        // const messages = [...group.messages]
+                        const curMsgsCt = group.messages.length
+                        const messages = group.messages.slice((curMsgsCt - 20 < 0 ? 0 : curMsgsCt - 20), group.messages.length)
                         const authors = []
 
                         for (const message of messages) {
@@ -79,7 +88,7 @@ const ioHandler = (req, res) => {
                 }
 
             })
-            socket.on('loadMessages', async (data, cb) => {
+            socket.on('loadMessages-server', async (data, cb) => {
                 const token = data.accessToken
                 const user = decodeJWT(token)
                 if (!user) return cb(null)
@@ -114,7 +123,7 @@ const ioHandler = (req, res) => {
                     }
                 }
             })
-            socket.on('updateGroupOrder', async (data) => { // when they change order of their groups, update the order in the database
+            socket.on('updateGroupOrder-server', async (data) => { // when they change order of their groups, update the order in the database
                 const token = data.accessToken
                 const user = decodeJWT(token)
                 if (!user) return
@@ -142,7 +151,7 @@ const ioHandler = (req, res) => {
             // when any stalable data changes, in the corresponding socket event, send back new data and update client side
             // ex: when a group is joined, send back the new group data in the groupJoin event & update client side
             // message events
-            socket.on('messageCreate', (data, cb) => {
+            socket.on('messageCreate-server', async (data) => {
                 // when a message is sent, broadcast it to all users in the socket room and update the message in the database
                 const token = data.accessToken
                 const user = decodeJWT(token)
@@ -158,6 +167,15 @@ const ioHandler = (req, res) => {
                     const read = []
 
                     const newMessage = { id, author, message, createdAt, edited, read }
+                    
+                    const group = await QueryGroup({ groupId })
+                    if(group) {
+                        await UpdateGroup({ groupId, newData: { messages: group.messages.concat([newMessage]) } }).catch(err => console.log(err)) // add message to the end
+                        io.in(groupId).emit('messageCreate-client', { message: newMessage, groupId }) // broadcast message to all users in the group
+                    }
+
+                    console.log(message.files[0].name || null)
+                    console.log(calculateFileSize(message.files[0].data.toString('base64')))
                 }
             })
             socket.on('messageEdit', () => {

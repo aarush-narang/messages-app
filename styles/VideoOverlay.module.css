@@ -30,6 +30,7 @@
     opacity: 0;
     transition: opacity 150ms ease-in-out;
     border-radius: 0 0 var(--video-border-radius) var(--video-border-radius);
+    user-select: none;
 }
 
 .videoInformationContainer::before {
@@ -92,6 +93,7 @@
     opacity: 0;
     transition: opacity 150ms ease-in-out;
     border-radius: 0 0 var(--video-border-radius) var(--video-border-radius);
+    user-select: none;
 }
 
 .videoControlsContainer::before {

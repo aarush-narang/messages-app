@@ -40,7 +40,7 @@ export default function Groups({ data, csrfToken }) {
         const [groups, setGroups] = useState(null)
         const msgsState = useState([])
         const [user, setUser] = useState(null)
-        const [socket, setSocket] = useState(io()); // initialize socket connection to server
+        const [socket, setSocket] = useState(null); // initialize socket connection to server
 
         // socket connection
         const [loading, setLoading] = useState(true)
@@ -55,14 +55,14 @@ export default function Groups({ data, csrfToken }) {
                         }
                     }).finally(() => {
                         const socket = io()
-
+                        setSocket(socket)
                         socket.on('connect', () => {
                             // loaded
                             setLoading(false)
                             console.log('connected client socket')
 
                             // initialize data
-                            socket.emit('init', jsCookie.get('accessToken'), (data) => {
+                            socket.emit('init-server', jsCookie.get('accessToken'), (data) => {
                                 setGroups(data.groups)
                                 setUser(data.user)
 
@@ -91,7 +91,7 @@ export default function Groups({ data, csrfToken }) {
 
 
         return (
-            <div>
+            <div style={{ overflowY: 'hidden' }}>
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
@@ -116,7 +116,7 @@ export async function getServerSideProps(ctx) {
     // Access/Refresh Tokens
     const token = ctx.req.headers.cookie;
     const cookies = cookie.parse(token ? token : '');
-    if (cookies.accessToken) {
+    if (cookies.accessToken && cookies.refreshToken) {
         return {
             props: { // return props here
                 data: {
@@ -125,6 +125,11 @@ export async function getServerSideProps(ctx) {
                 csrfToken
             }
         }
+    } else {
+        ctx.res.setHeader('set-cookie', [
+            'accessToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;',
+            'refreshToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+        ])
     }
 
     return {

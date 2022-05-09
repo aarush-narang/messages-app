@@ -90,7 +90,13 @@ export function shortenName(name) {
     }
     return name
 }
-
+export function shortenFileName(name, max=15) {
+    if (name.length > max) {
+        const type = name.split('.').pop()
+        return name.substring(0, max-3) + '... .' + type
+    }
+    return name
+}
 export function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 B';
 
@@ -101,4 +107,18 @@ export function formatBytes(bytes, decimals = 2) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+export function calculateFileSize(base64) {
+    return formatBytes((base64.length * (3 / 4)) - (base64.endsWith('==') ? 2 : 1))
+}
+
+export function downloadBase64File(data, fileName) {
+    const downloadLink = document.createElement('a');
+    document.body.appendChild(downloadLink);
+
+    downloadLink.href = data;
+    downloadLink.target = '_self';
+    downloadLink.download = fileName;
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
 }

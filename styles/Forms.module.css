@@ -1,8 +1,9 @@
 .form_container {
-    display: block;
+    display: flex;
     min-width: min-content;
     padding: 25px;
     margin-bottom: 20px;
+    height: 100%;
 }
 
 .form {
