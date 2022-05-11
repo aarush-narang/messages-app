@@ -404,13 +404,37 @@
     align-self: flex-start;
 }
 
+/* message body (content + files) */
 .messageBody {
     padding: 5px 0;
 }
 
-.messageContent {
-    font-size: 15px;
+.messageContentContainer {
+
 }
+
+.messageContentMarkdown {
+    display: flex;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    word-break: break-all;
+
+    font-size: 15px;
+    line-height: 22px;
+}
+.messageContentMarkdown p {
+    margin: 0;
+}
+.messageContentCode {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 0 15px 15px 15px;
+    border-radius: 4px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+
+
 
 /* extra message information */
 .messageInfo {

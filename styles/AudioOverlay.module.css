@@ -38,8 +38,10 @@
     font-weight: bold;
     color: rgb(255, 255, 255, 0.8);
     display: flex;
+    min-width: 74px;
 }
 
+/* audio timeline */
 .audioControls .timeline {
     display: flex;
     justify-content: center;
@@ -49,7 +51,134 @@
 .timelineInput {
     min-width: 40px;
     width: 100%;
+    background: none;
 }
+
+.timelineInput:focus {
+    outline: none;
+}
+
+.timelineInput {
+    height: 22px;
+    -webkit-appearance: none;
+    margin: 10px 0;
+    width: 100%;
+
+    --track-height: 6px;
+    --track-expanded-height: 12px;
+    --track-height-margin: -5px;
+    --track-expanded-height-margin: -2px;
+    --track-color: rgb(21, 50, 56);
+    --track-thumb-color: hsl(190, 45%, 35%);
+    --track-thumb-hover-color: hsl(190, 45%, 45%);
+    --track-thumb-border-color: hsl(198, 50%, 38%);
+}
+
+.timelineInput::-webkit-slider-runnable-track {
+    width: 100%;
+    height: var(--track-height);
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 0px 0px 0px #000000;
+    background: var(--track-color);
+    border-radius: 3px;
+    border: 0px solid #000000;
+    transition: 150ms ease-in-out;
+}
+
+.timelineInput::-webkit-slider-thumb {
+    box-shadow: 0px 0px 0px #000000;
+    border: 1px solid var(--track-thumb-border-color);
+    height: 15px;
+    width: 15px;
+    border-radius: 15px;
+    background: var(--track-thumb-color);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: var(--track-height-margin);
+    transition: 150ms ease-in-out;
+}
+.timelineInput::-webkit-slider-thumb:hover {
+    background: var(--track-thumb-hover-color);
+}
+.timelineInput:hover::-webkit-slider-runnable-track {
+    --track-height: var(--track-expanded-height);
+    --track-height-margin: var(--track-expanded-height-margin);
+}
+
+.timelineInput::-moz-range-track {
+    width: 100%;
+    height: var(--track-height);
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 0px 0px 0px #000000;
+    background: var(--track-color);
+    border-radius: 3px;
+    border: 0px solid #000000;
+}
+.timelineInput::-moz-range-track:hover::-webkit-slider-runnable-track {
+    --track-height: var(--track-expanded-height);
+    --track-height-margin: var(--track-expanded-height-margin);
+}
+
+.timelineInput::-moz-range-thumb {
+    box-shadow: 0px 0px 0px #000000;
+    border: 1px solid var(--track-thumb-border-color);
+    height: 15px;
+    width: 15px;
+    border-radius: 15px;
+    background: var(--track-thumb-color);
+    cursor: pointer;
+}
+
+.timelineInput::-ms-track {
+    width: 100%;
+    height: var(--track-height);
+    cursor: pointer;
+    animate: 0.2s;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+}
+.timelineInput:hover::-ms-track {
+    --track-height: var(--track-expanded-height);
+    --track-height-margin: var(--track-expanded-height-margin);
+}
+
+.timelineInput::-ms-fill-lower {
+    background: var(--track-color);
+    border: 0px solid #000000;
+    border-radius: 6px;
+    box-shadow: 0px 0px 0px #000000;
+}
+
+.timelineInput::-ms-fill-upper {
+    background: var(--track-color);
+    border: 0px solid #000000;
+    border-radius: 6px;
+    box-shadow: 0px 0px 0px #000000;
+}
+
+.timelineInput::-ms-thumb {
+    margin-top: 1px;
+    box-shadow: 0px 0px 0px #000000;
+    border: 1px solid var(--track-thumb-border-color);
+    height: 15px;
+    width: 15px;
+    border-radius: 15px;
+    background: var(--track-thumb-color);
+    cursor: pointer;
+}
+
+.timelineInput:focus::-ms-fill-lower {
+    background: var(--track-color);
+}
+
+.timelineInput:focus::-ms-fill-upper {
+    background: var(--track-color);
+}
+
+/* other buttons */
 .audioControls .audioFileDownload {
     font-family: var(--symbols-font-family);
     font-size: 25px;
@@ -238,6 +367,11 @@
     background-color: rgb(28, 54, 60);
 }
 
+@media screen and (max-width: 600px) {
+    .audioContainer .duration {
+        display: none;
+    }
+}
 @media screen and (max-width: 520px) {
     .audioControls .audioFileDownload {
         display: none;

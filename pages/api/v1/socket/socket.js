@@ -3,7 +3,6 @@ import { QueryGroup, QueryUser, UpdateUser, UpdateGroup } from '../../../../lib/
 import { apiHandler } from '../../../../lib/helpers/api-handler'
 import { decodeJWT } from '../../../../lib/helpers/jwt-middleware'
 import SnowflakeID from 'snowflake-id'
-import { calculateFileSize } from '../../../components/util'
 
 /*
     Events:
@@ -14,15 +13,36 @@ import { calculateFileSize } from '../../../components/util'
     - new groups (create modal first)
 
 */
-// server side socket io
+async function replaceMessagesAuthorId(messages = []) {
+    const copy = [...messages]
+    const authors = []
+    for (const message of copy) {
+        const findArr = authors.find(author => author.uid == message.author.uid)
+        if (findArr) {
+            message.author = findArr
+        }
+        else {
+            const dbuser = await QueryUser({ user: { uid: message.author } })
+            const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'uid', 'createdAt', 'icon'].includes(key))
+            const userInfo = Object.fromEntries(objEntries)
+
+            authors.push(userInfo)
+            message.author = userInfo
+        }
+    }
+    return copy
+}
 const ioHandler = (req, res) => {
     if (!res.socket.server.io) {
-        const io = new Server(res.socket.server)
-        const snowflake = new SnowflakeID({
-            mid: 42,
-            offset : Date.now()
+        const io = new Server(res.socket.server, {
+            maxHttpBufferSize: 1e8,
+            pingTimeout: 60000,
+            httpCompression: true,
         })
-
+        const messageSnowflake = new SnowflakeID({
+            mid: 2,
+            offset: Date.now()
+        })
 
         // connection and messages here
         io.on('connection', socket => {
@@ -38,7 +58,7 @@ const ioHandler = (req, res) => {
                     const groups = [...dbuser.groups]
 
                     // subscribe to groups
-                    for(const group of groups) {
+                    for (const group of groups) {
                         try {
                             await socket.join((group.id))
                         } catch (error) {
@@ -65,23 +85,10 @@ const ioHandler = (req, res) => {
                     if (group.members.includes(user.uid)) {
                         const curMsgsCt = group.messages.length
                         const messages = group.messages.slice((curMsgsCt - 20 < 0 ? 0 : curMsgsCt - 20), group.messages.length)
-                        const authors = []
+                        
+                        const messagesWithAuthor = await replaceMessagesAuthorId(messages)
 
-                        for (const message of messages) {
-                            const findArr = authors.find(author => author.uid == message.author.uid)
-                            if (findArr) {
-                                message.author = findArr
-                            }
-                            else {
-                                const dbuser = await QueryUser({ user: { uid: message.author } })
-                                const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'uid', 'createdAt', 'icon'].includes(key))
-                                const userInfo = Object.fromEntries(objEntries)
-
-                                authors.push(userInfo)
-                                message.author = userInfo
-                            }
-                        }
-                        cb(messages)
+                        cb(messagesWithAuthor)
                     } else {
                         cb(null)
                     }
@@ -152,30 +159,27 @@ const ioHandler = (req, res) => {
             // ex: when a group is joined, send back the new group data in the groupJoin event & update client side
             // message events
             socket.on('messageCreate-server', async (data) => {
-                // when a message is sent, broadcast it to all users in the socket room and update the message in the database
                 const token = data.accessToken
                 const user = decodeJWT(token)
                 if (!user) return
                 else {
                     const groupId = data.groupId
 
-                    const id = Number(snowflake.generate())
+                    const id = Number(messageSnowflake.generate())
                     const author = user.uid
                     const message = data.message
                     const createdAt = Date.now()
                     const edited = false
                     const read = []
-
-                    const newMessage = { id, author, message, createdAt, edited, read }
                     
+                    const messageObj = { id, author, message, createdAt, edited, read }
+                    const newMessage = await replaceMessagesAuthorId([{ id, author, message, createdAt, edited, read }]).then(messages => messages[0])
+
                     const group = await QueryGroup({ groupId })
-                    if(group) {
-                        await UpdateGroup({ groupId, newData: { messages: group.messages.concat([newMessage]) } }).catch(err => console.log(err)) // add message to the end
+                    if (group) {
+                        // await UpdateGroup({ groupId, newData: { messages: group.messages.concat([messageObj]) } }).catch(err => console.log(err)) // add message to the end
                         io.in(groupId).emit('messageCreate-client', { message: newMessage, groupId }) // broadcast message to all users in the group
                     }
-
-                    console.log(message.files[0].name || null)
-                    console.log(calculateFileSize(message.files[0].data.toString('base64')))
                 }
             })
             socket.on('messageEdit', () => {

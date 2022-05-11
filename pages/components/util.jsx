@@ -84,6 +84,7 @@ export async function useRefetchToken(callback) { // callback is a function that
 }
 
 // Util
+// String Util
 export function shortenName(name) {
     if (name.length > 15) {
         return name.substring(0, 12) + '...'
@@ -97,6 +98,23 @@ export function shortenFileName(name, max=15) {
     }
     return name
 }
+export function getIndicesOf(searchStr, str, caseSensitive) {
+    var searchStrLen = searchStr.length;
+    if (searchStrLen == 0) {
+        return [];
+    }
+    var startIndex = 0, index, indices = [];
+    if (!caseSensitive) {
+        str = str.toLowerCase();
+        searchStr = searchStr.toLowerCase();
+    }
+    while ((index = str.indexOf(searchStr, startIndex)) > -1) {
+        indices.push(index);
+        startIndex = index + searchStrLen;
+    }
+    return indices;
+}
+// File Util
 export function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 B';
 
@@ -109,7 +127,8 @@ export function formatBytes(bytes, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 export function calculateFileSize(base64) {
-    return formatBytes((base64.length * (3 / 4)) - (base64.endsWith('==') ? 2 : 1))
+    if(typeof base64 !== 'string') base64 = Buffer.from(base64, 'binary').toString('base64')
+    return formatBytes((base64.length * (3 / 4)) - (base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0))) // base64 size formula
 }
 
 export function downloadBase64File(data, fileName) {
@@ -122,3 +141,4 @@ export function downloadBase64File(data, fileName) {
     downloadLink.click();
     document.body.removeChild(downloadLink);
 }
+

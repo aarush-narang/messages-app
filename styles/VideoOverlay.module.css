@@ -58,7 +58,7 @@
 }
 
 .videoFileName {
-    font-size: 18px;
+    font-size: 16px;
     color: rgb(255, 255, 255);
 }
 
@@ -300,6 +300,9 @@
     .volumeContainer:hover .volumeSlider,
     .volumeContainer:focus-within .volumeSlider {
         width: 70%;
+    }
+    .videoHeader {
+        display: none;
     }
 }
 

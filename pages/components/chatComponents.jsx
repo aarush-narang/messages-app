@@ -5,15 +5,19 @@ import audioStyles from "../../styles/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
-import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File } from "./util";
+import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, getIndicesOf } from "./util";
 import { Spinner } from "./inputComponents";
 // Util Packages
 import jsCookie from "js-cookie";
 import moment from "moment";
+// Code Highlighting
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
+// Markdown Parser
 import { marked } from "marked";
 
 const SPINNER_COLOR = '#2e8283'
-const MAX_FILE_SIZE = 8; // MB
+const MAX_FILE_SIZE = 100; // MB
 
 // Main Components For Chat
 export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket }) {
@@ -176,10 +180,17 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     const [scrollButton, setScrollButton] = useState(false) // if the chat is scrolled high enough, show the scroll to bottom button
     const [msgsLoading, setMsgsLoading] = useState([]) // groups that have messages loading
     const [maxMessages, setMaxMessages] = useState([]) // groups that have reached their max messages
+    const [inCodeBlock, setInCodeBlock] = useState(false) // if the user is in a code block
+    const [cursorPosition, setCursorPosition] = useState(0) // the cursor position in the message input
     const topEl = useRef(null) // the message at the top of the chat
 
-    const [messages, setMessages] = msgsState // messages of each group that have been loaded. Stored in parent component to avoid losing data when navigating between groups
+    const [messages, _setMessages] = msgsState // messages of each group that have been loaded. Stored in parent component to avoid losing data when navigating between groups
+    const messagesRef = useRef(messages)
 
+    const setMessages = (msgs) => {
+        messagesRef.current = msgs
+        _setMessages(msgs)
+    }
 
     function scrollMessagesDiv(pos = null) {
         const msgsContainer = document.querySelector(`.${styles.messages}`)
@@ -192,7 +203,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             setMsgsLoading([currentGroup.id].concat(msgsLoading))
 
             socket.emit('currentGroupChange-server', { groupId: currentGroup.id, accessToken: jsCookie.get('accessToken') }, (msgs) => {
-                if (!msgs) return;
+                if (!msgs) return console.log('Error on server (currentGroupChange-server)');
                 // push the messages to the messages array w/ group id
                 setMessages([{ messages: [...msgs], id: currentGroup.id }].concat(messages))
                 // remove group from loading array
@@ -235,11 +246,21 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 
 
     useEffect(() => {
+        if (messages.length <= 0) return;
         socket.on('messageCreate-client', (msg) => {
-            console.log('messageCreate-client', msg)
-            alert('messageCreate-client')
+            const files = msg.message.message.files
+            if (files) {
+                // convert array buffer files to base64
+                for (let i = 0; i < files.length; i++) {
+                    files[i].data = Buffer.from(files[i].data, 'binary').toString('base64')
+                }
+            }
+            const newMsgs = messagesRef.current.find(grp => grp.id === msg.groupId).messages.concat([msg.message])
+            const newMsgsObj = [{ messages: newMsgs, id: msg.groupId }].concat(messagesRef.current.filter(grp => grp.id !== msg.groupId))
+            setMessages(newMsgsObj)
+            scrollMessagesDiv()
         })
-    }, [])
+    }, [messages.length > 0])
 
     return (
         <div className={styles.main}>
@@ -322,7 +343,9 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                 <form className={styles.messageInputForm} encType={"multipart/form-data"} onSubmit={
                     async (e) => {
                         e.preventDefault()
-
+                        const textarea = e.target.querySelector(`.${styles.messageTextArea}`)
+                        textarea.style.height = 'auto';
+                        textarea.style.height = '36px';
                         // get formdata
                         const formData = new FormData(e.target)
                         // convert to json
@@ -335,6 +358,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         } else if (formDataObj.content.length === 0 && formDataObj.files.length === 0) {
                             return alert('Message cannot be empty!')
                         }
+                        formDataObj.content = formDataObj.content.trim()
                         // set files
                         const files = [...e.target.children.namedItem('files').files]
                         const fileObjs = []
@@ -347,10 +371,8 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         }
                         formDataObj.files = fileObjs
 
-                        console.log(formDataObj)
                         // send message
                         await socket.emit('messageCreate-server', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, message: formDataObj })
-                        alert('Message sent!')
                         // clear form and images
                         setImg([])
                         e.target.reset()
@@ -403,18 +425,16 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     </label>
                     <div className={styles.messageTextContainer} style={{ color: fontColor, fontWeight: fontColor ? 'bold' : 'normal' }} data-length="">
                         <textarea name={"content"} className={styles.messageTextArea} placeholder={`Send a message to ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
-                            onKeyDown={(e) => {
-                                if (e.key == 'Enter' && !e.shiftKey) {
-                                    e.preventDefault()
-                                    e.target.form.querySelector('[type="submit"]').click() // submit form
-                                    return
-                                }
-                            }}
                             onInput={(e) => { // validating characters length
                                 const text = e.target.value
                                 const parent = e.target.parentElement
                                 const MAX_LENGTH = 5000
 
+                                // scroll height
+                                e.target.style.height = 'auto';
+                                e.target.style.height = text.length == 0 ? '36px' : e.target.scrollHeight + 'px';
+
+                                // validating length
                                 if (text.length > 10000) {
                                     e.target.value = text.slice(0, 10000)
                                 } else {
@@ -428,9 +448,60 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                                         parent.dataset.length = ""
                                     }
                                 }
+                            }}
+                            onSelect={(e) => {
+                                const codeBlockIndices = getIndicesOf('```', e.target.value, false)
+                                if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
 
-                                e.target.style.height = 'auto';
-                                e.target.style.height = text.length == 0 ? '36px' : e.target.scrollHeight + 'px';
+                                // check if the cursor is in a code block
+                                const states = []
+                                for (let i = 0; i < codeBlockIndices.length; i += 2) {
+                                    const start = codeBlockIndices[i]
+                                    const end = codeBlockIndices[i + 1]
+
+                                    if (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3 && e.target.selectionStart <= end) {
+                                        states.push(true)
+                                    } else if (!end && e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3) {
+                                        states.push(true)
+                                    } else {
+                                        states.push(false)
+                                    }
+                                }
+
+                                if (states.includes(true)) setInCodeBlock(true)
+                                else setInCodeBlock(false)
+
+                                setCursorPosition(e.target.selectionStart)
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key == 'Enter' && !e.shiftKey && !inCodeBlock) {
+                                    e.preventDefault()
+                                    e.target.form.querySelector('[type="submit"]').click() // submit form
+                                    return
+                                }
+                                if (inCodeBlock) {
+                                    switch (e.key) {
+                                        case 'Enter':
+                                            e.preventDefault()
+                                            // insert new line at cursor
+                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\n' + e.target.value.substring(cursorPosition)
+                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+
+                                            // readjust height
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = e.target.value.length == 0 ? '36px' : e.target.scrollHeight + 'px';
+
+                                            // scroll down one line (based off line height)
+                                            e.target.scrollTop = e.target.scrollTop + 22
+                                            break
+                                        case 'Tab':
+                                            e.preventDefault()
+                                            // insert tab at cursor
+                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\t' + e.target.value.substring(cursorPosition)
+                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+                                            break
+                                    }
+                                }
                             }}
                         ></textarea>
                     </div>
@@ -441,6 +512,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     )
 }
 export function Message({ message, user }) {
+    const codeBlocks = message.message.content.split('```')
     return (
         <div id={message.id} className={styles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
             <img className={styles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
@@ -457,10 +529,30 @@ export function Message({ message, user }) {
                     </div>
                 </div>
                 <div className={styles.messageBody} style={{ height: '100%' }}>
-                    <div className={styles.messageContent}>{message.message.content}</div>
+                    <div className={styles.messageContentContainer}>
+                        {
+                            codeBlocks.length >= 3 ? (
+                                codeBlocks.map((codeBlock, i) => {
+                                    if ((i + 1) % 2 == 0) {
+                                        return (
+                                            <pre key={i} className={styles.messageContentCode} dangerouslySetInnerHTML={{ __html: hljs.highlightAuto(codeBlock).value }}>
+                                            </pre>
+                                        )
+                                    } else {
+                                        return (
+                                            <div key={i} className={styles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(codeBlock) }} ></div>
+                                        )
+                                    }
+                                })
+                            ) : (
+                                <div className={styles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(message.message.content, { mangle: true, smartypants: true }) }} ></div>
+                            )
+                        }
+                        {/* <div className={styles.messageContentMarkdown}>{message.message.content}</div> */}
+                    </div>
                     <div className={styles.messageFiles}>{message.message.files.map((fileInfo) => {
-                        const data = Buffer.isBuffer(fileInfo.data) ? data.toString('base64') : fileInfo.data
-                        const fileSize = data ? calculateFileSize(data) : 0 // base64 size formula
+                        const data = Buffer.isBuffer(fileInfo.data) ? fileInfo.data.toString('base64') : fileInfo.data
+                        const fileSize = data ? calculateFileSize(data) : 0
                         const name = fileInfo.name
 
                         const mimeType = fileInfo.mimeType
@@ -538,6 +630,7 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     const [currentTime, _setCurrentTime] = useState(0) // in seconds
     const [duration, _setDuration] = useState(0) // in seconds
     const [pbSpeedMenuState, setPbSpeedMenuState] = useState(false)
+    const [canPlay, _setCanPlay] = useState(false)
 
     const mutedRef = useRef(muted)
     const volumeRef = useRef(volume)
@@ -546,6 +639,7 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     const playbackSpeedRef = useRef(playbackSpeed)
     const currentTimeRef = useRef(currentTime)
     const durationRef = useRef(duration)
+    const canPlayRef = useRef(canPlay)
 
     const setFullscreen = (value) => {
         fullscreenRef.current = value
@@ -575,6 +669,10 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         durationRef.current = value
         _setDuration(value)
     }
+    const setCanPlay = (value) => {
+        canPlayRef.current = value
+        _setCanPlay(value)
+    }
     const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
         minimumIntegerDigits: 2,
     })
@@ -591,7 +689,9 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     const pbSpeedElementRef = useRef(null)
 
     useEffect(() => {
-        playing ? videoRef.current.play() : videoRef.current.pause()
+        if (canPlayRef.current) {
+            playing ? videoRef.current.play() : videoRef.current.pause()
+        }
     }, [playing])
     useEffect(() => {
         if (document.fullscreenElement == null && fullscreen) {
@@ -663,6 +763,9 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         })
         videoRef.current.addEventListener('timeupdate', () => {
             setCurrentTime(videoRef.current.currentTime)
+        })
+        videoRef.current.addEventListener('canplaythrough', (e) => {
+            setCanPlay(true)
         })
     }, [])
     return (
@@ -746,11 +849,7 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
                     </button>
                 </div>
             </div>
-            <video key={data} className={videoStyles.video} ref={videoRef}
-                onClick={() => setPlaying(!playing)}
-            >
-                <source src={data} type={mimeType} />
-            </video>
+            <video preload={"auto"} key={data} src={data} className={videoStyles.video} ref={videoRef} onClick={() => setPlaying(!playing)}></video>
         </div>
     )
 }

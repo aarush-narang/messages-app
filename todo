@@ -1,4 +1,5 @@
 # PRIORITY:
+- fix lagging with syntax highlighting and add it to the textarea as well. or maybe replace textarea with div-contenteditable
 - paste image in message area
 - fix logout issue with brave browser?
 - replace all alerts on frontend with modals

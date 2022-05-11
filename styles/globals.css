@@ -43,7 +43,7 @@ body, body>div{
     height: 100%;
     background-color: var(--primary-color);
     font-family: Urbanist;
-    /* overflow-y: hidden; */
+    overflow-y: hidden;
 }
 
 
