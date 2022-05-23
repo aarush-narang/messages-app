@@ -82,7 +82,7 @@ const ioHandler = (req, res) => {
                 else {
                     const groupId = data.groupId
                     const group = await QueryGroup({ groupId })
-                    if (group.members.includes(user.uid)) {
+                    if (group.members.includes(parseInt(user.uid))) {
                         const curMsgsCt = group.messages.length
                         const messages = group.messages.slice((curMsgsCt - 20 < 0 ? 0 : curMsgsCt - 20), group.messages.length)
                         
@@ -102,7 +102,7 @@ const ioHandler = (req, res) => {
                 else {
                     const groupId = data.groupId
                     const group = await QueryGroup({ groupId })
-                    if (group.members.includes(user.uid)) {
+                    if (group.members.includes(parseInt(user.uid))) {
                         const len = group.messages.length
                         const ct = data.curMsgsCt
                         const MESSAGE_BATCH_SIZE = ct * 0.5

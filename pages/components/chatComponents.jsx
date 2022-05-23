@@ -12,7 +12,7 @@ import jsCookie from "js-cookie";
 import moment from "moment";
 // Code Highlighting
 import hljs from 'highlight.js'
-import 'highlight.js/styles/github.css'
+import 'highlight.js/styles/atom-one-dark.css'
 // Markdown Parser
 import { marked } from "marked";
 
@@ -255,6 +255,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     files[i].data = Buffer.from(files[i].data, 'binary').toString('base64')
                 }
             }
+            console.log(messagesRef.current.find(grp => grp.id === msg.groupId), messagesRef.current.find(grp => grp.id === msg.groupId).messages)
             const newMsgs = messagesRef.current.find(grp => grp.id === msg.groupId).messages.concat([msg.message])
             const newMsgsObj = [{ messages: newMsgs, id: msg.groupId }].concat(messagesRef.current.filter(grp => grp.id !== msg.groupId))
             setMessages(newMsgsObj)
@@ -451,6 +452,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                             }}
                             onSelect={(e) => {
                                 const codeBlockIndices = getIndicesOf('```', e.target.value, false)
+                                if(codeBlockIndices.length === 0) return
                                 if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
 
                                 // check if the cursor is in a code block
