@@ -452,7 +452,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                             }}
                             onSelect={(e) => {
                                 const codeBlockIndices = getIndicesOf('```', e.target.value, false)
-                                if(codeBlockIndices.length === 0) return
+                                if (codeBlockIndices.length === 0) return
                                 if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
 
                                 // check if the cursor is in a code block
@@ -603,7 +603,7 @@ export function TextFileView({ name, mimeType, data, fileSize }) {
         <pre key={data} wrap={"true"} className={fileStyles.messageFile}>
             <div className={fileStyles.preHeader}>
                 <div className={fileStyles.preTitle}>
-                    <b style={{ fontSize: '18px' }}>{shortenFileName(name)}</b>
+                    <div style={{ fontSize: '15px' }}>{shortenFileName(name, 10)}</div>
                     <div className={fileStyles.preButtons}>
                         <div className={fileStyles.preButton} onClick={() => {
                             setTextFileState(!textFileState)
@@ -626,13 +626,13 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
     const [fullscreen, _setFullscreen] = useState(false) // true = fullscreen, false = not fullscreen
-    const [volume, _setVolume] = useState(1) // 0 - 1
+    const [volume, _setVolume] = useState(1) // 0 to 1
     const [muted, _setMuted] = useState(false)
     const [playbackSpeed, _setPlaybackSpeed] = useState('1')
     const [currentTime, _setCurrentTime] = useState(0) // in seconds
+    const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
     const [duration, _setDuration] = useState(0) // in seconds
     const [pbSpeedMenuState, setPbSpeedMenuState] = useState(false)
-    const [canPlay, _setCanPlay] = useState(false)
 
     const mutedRef = useRef(muted)
     const volumeRef = useRef(volume)
@@ -640,8 +640,8 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     const fullscreenRef = useRef(fullscreen)
     const playbackSpeedRef = useRef(playbackSpeed)
     const currentTimeRef = useRef(currentTime)
+    const currentTimeRefInternal = useRef(currentTimeInternal)
     const durationRef = useRef(duration)
-    const canPlayRef = useRef(canPlay)
 
     const setFullscreen = (value) => {
         fullscreenRef.current = value
@@ -664,16 +664,18 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         _setPlaybackSpeed(value)
     }
     const setCurrentTime = (value) => {
+        currentTimeRefInternal.current = value
         currentTimeRef.current = value
         _setCurrentTime(value)
+    }
+    const setCurrentTimeInternal = (value) => { // changed by video element, uses different state to prevent infinite loop with useEffect below
+        currentTimeRefInternal.current = value
+        currentTimeRef.current = value
+        _setCurrentTimeInternal(value)
     }
     const setDuration = (value) => {
         durationRef.current = value
         _setDuration(value)
-    }
-    const setCanPlay = (value) => {
-        canPlayRef.current = value
-        _setCanPlay(value)
     }
     const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
         minimumIntegerDigits: 2,
@@ -690,10 +692,8 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     const videoContainerRef = useRef(null)
     const pbSpeedElementRef = useRef(null)
 
-    useEffect(() => {
-        if (canPlayRef.current) {
-            playing ? videoRef.current.play() : videoRef.current.pause()
-        }
+    useEffect(async () => {
+        playing ? await videoRef.current.play() : await videoRef.current.pause()
     }, [playing])
     useEffect(() => {
         if (document.fullscreenElement == null && fullscreen) {
@@ -715,43 +715,6 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         videoRef.current.playbackRate = parseFloat(playbackSpeed)
     }, [playbackSpeed])
     useEffect(() => {
-        document.addEventListener('keydown', (e) => {
-            const tagName = document.activeElement.tagName.toLowerCase()
-            if (tagName === 'input' || tagName === 'textarea') return
-            if (!document.fullscreenElement) return
-            switch (e.key.toLowerCase()) {
-                case ' ':
-                    if (tagName === 'button') return
-                case 'k':
-                    setPlaying(!playingRef.current)
-                    break
-                case 'f':
-                    setFullscreen(!fullscreenRef.current)
-                    if (document.fullscreenElement) document.exitFullscreen()
-                    break
-                case 'm':
-                    setMuted(!videoRef.current.muted)
-                    break
-                case 'arrowleft':
-                    setCurrentTime(currentTimeRef.current - 5)
-                    break
-                case 'j':
-                    setCurrentTime(currentTimeRef.current - 10)
-                    break
-                case 'arrowright':
-                    setCurrentTime(currentTimeRef.current + 5)
-                    break
-                case 'l':
-                    setCurrentTime(currentTimeRef.current + 10)
-                    break
-                case 'arrowup':
-                    setVolume(volumeRef.current + 0.1)
-                    break
-                case 'arrowdown':
-                    setVolume(volumeRef.current - 0.1)
-                    break
-            }
-        })
         document.addEventListener('fullscreenchange', () => {
             setFullscreen(document.fullscreenElement != null)
         })
@@ -759,15 +722,6 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
             if (!e.composedPath().includes(pbSpeedElementRef.current)) {
                 setPbSpeedMenuState(false)
             }
-        })
-        videoRef.current.addEventListener('loadeddata', () => {
-            setDuration(videoRef.current.duration)
-        })
-        videoRef.current.addEventListener('timeupdate', () => {
-            setCurrentTime(videoRef.current.currentTime)
-        })
-        videoRef.current.addEventListener('canplaythrough', (e) => {
-            setCanPlay(true)
         })
     }, [])
     return (
@@ -821,7 +775,7 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
                         }} />
                     </div>
                     <div className={videoStyles.durationContainer}>
-                        <div className={videoStyles.currentTime}>{formatDuration(currentTime)}</div>
+                        <div className={videoStyles.currentTime}>{formatDuration(currentTimeRef.current)}</div>
                         /
                         <div className={videoStyles.totalTime}>{formatDuration(duration)}</div>
                     </div>
@@ -832,7 +786,7 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
                         <ul className={videoStyles.playBackSpeeds} data-open={pbSpeedMenuState}>
                             {
                                 PLAYBACK_SPEEDS.map(speed => {
-                                    return <li key={speed} data-current={speed == playbackSpeed} className={videoStyles.playBackSpeed} onClick={() => setPlaybackSpeed(speed)}>{speed}x</li>
+                                    return <li key={speed} data-current={speed == playbackSpeedRef.current} className={videoStyles.playBackSpeed} onClick={() => setPlaybackSpeed(speed)}>{speed}x</li>
                                 })
                             }
                         </ul>
@@ -851,7 +805,11 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
                     </button>
                 </div>
             </div>
-            <video preload={"auto"} key={data} src={data} className={videoStyles.video} ref={videoRef} onClick={() => setPlaying(!playing)}></video>
+            <video preload={"auto"} key={data} src={data} className={videoStyles.video} ref={videoRef}
+                onClick={() => setPlaying(!playing)}
+                onLoadedData={(e) => setDuration(e.target.duration)}
+                onTimeUpdate={(e) => setCurrentTimeInternal(e.target.currentTime)}
+            ></video>
         </div>
     )
 }
@@ -862,6 +820,7 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
     const [muted, _setMuted] = useState(false)
     const [playbackSpeed, _setPlaybackSpeed] = useState('1')
     const [currentTime, _setCurrentTime] = useState(0) // in seconds
+    const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
     const [duration, _setDuration] = useState(0) // in seconds
     const [pbSpeedMenuState, setPbSpeedMenuState] = useState(false)
 
@@ -870,6 +829,7 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
     const playingRef = useRef(playing)
     const playbackSpeedRef = useRef(playbackSpeed)
     const currentTimeRef = useRef(currentTime)
+    const currentTimeRefInternal = useRef(currentTimeInternal)
     const durationRef = useRef(duration)
 
     const setMuted = (value) => {
@@ -891,6 +851,11 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
     const setCurrentTime = (value) => {
         currentTimeRef.current = value
         _setCurrentTime(value)
+    }
+    const setCurrentTimeInternal = (value) => {
+        currentTimeRefInternal.current = value
+        currentTimeRef.current = value
+        _setCurrentTimeInternal(value)
     }
     const setDuration = (value) => {
         durationRef.current = value
@@ -932,12 +897,6 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
                 setPbSpeedMenuState(false)
             }
         })
-        audioRef.current.addEventListener('loadeddata', () => {
-            setDuration(audioRef.current.duration)
-        })
-        audioRef.current.addEventListener('timeupdate', () => {
-            setCurrentTime(audioRef.current.currentTime)
-        })
     }, [])
 
     // controls: play/pause, duration and current time, timeline, volume/mute, playback speed, download
@@ -956,10 +915,10 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
                     }
                 </button>
                 <div className={audioStyles.duration}>
-                    {formatDuration(currentTime)} / {formatDuration(duration)}
+                    {formatDuration(currentTimeRef.current)} / {formatDuration(duration)}
                 </div>
                 <div className={audioStyles.timeline}>
-                    <input className={audioStyles.timelineInput} type="range" min="0" max={duration} value={currentTime} onChange={(e) => setCurrentTime(e.target.value)} />
+                    <input className={audioStyles.timelineInput} type="range" min="0" max={duration} value={currentTimeRef.current} onChange={(e) => setCurrentTime(e.target.value)} />
                 </div>
                 <div className={audioStyles.volumeContainer}>
                     <button className={videoStyles.muteBtn} onClick={() => setMuted(!muted)}>
@@ -1001,7 +960,10 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
                     downloadBase64File(data, name)
                 }}>file_download</div>
             </div>
-            <audio ref={audioRef} key={data} src={data}>
+            <audio ref={audioRef} key={data} src={data}
+                onLoadedData={(e) => setDuration(e.target.duration)}
+                onTimeUpdate={(e) => setCurrentTimeInternal(e.target.currentTime)}
+            >
             </audio>
         </div>
     )
