@@ -1,0 +1,14 @@
+.contextMenuContainer {
+    position: absolute;
+    z-index: 9999;
+    list-style: none;
+}
+.contextMenuItem {
+
+}
+.contextMenuItemText {
+
+}
+.contextMenuItemIcon {
+    
+}

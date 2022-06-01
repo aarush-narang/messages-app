@@ -1,4 +1,5 @@
 # PRIORITY:
+- add placeholder to new contenteditable textbox
 - fix lagging with syntax highlighting and add it to the textarea as well. or maybe replace textarea with div-contenteditable
 - FIX MEMORY LEAK WITH FILES WHEN CURRENT GROUP IS CHANGED
 - paste image in message area

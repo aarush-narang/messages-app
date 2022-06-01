@@ -5,6 +5,7 @@ import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css
 import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
 import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews/FileViews.module.css";
+import contextMenuStyles from "../../styles/ContextMenuStyles.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
 import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, getIndicesOf } from "./util";
@@ -178,7 +179,6 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     }
     if (!currentGroup) return <NoGroupSelected />
     const [img, setImg] = useState([]) // images to be uploaded
-    const [fontColor, setFontColor] = useState('') // used to change the font color of the message char limit text
     const [scrollButton, setScrollButton] = useState(false) // if the chat is scrolled high enough, show the scroll to bottom button
     const [msgsLoading, setMsgsLoading] = useState([]) // groups that have messages loading
     const [maxMessages, setMaxMessages] = useState([]) // groups that have reached their max messages
@@ -346,24 +346,29 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                 <form className={chatStyles.messageInputForm} encType={"multipart/form-data"} onSubmit={
                     async (e) => {
                         e.preventDefault()
-                        const textarea = e.target.querySelector(`.${chatStyles.messageTextArea}`)
+                        const textarea = e.target.querySelector('[data-name="content"]')
                         textarea.style.height = 'auto';
                         textarea.style.height = '36px';
                         // get formdata
-                        const formData = new FormData(e.target)
-                        // convert to json
-                        const formDataObj = Object.fromEntries(formData.entries())
+                        const formFiles = document.querySelector('[data-name="files"]')
+                        const formContent = document.querySelector('[data-name="content"]')
+                        const formDataObj = {
+                            files: formFiles.value,
+                            content: formContent.innerText
+                        }
                         // remove empty values
                         if (formDataObj.files && formDataObj.files.size === 0) formDataObj.files = []
                         // confirm message length
                         if (formDataObj.content.length > 5000) {
                             return alert('Message too long!')
-                        } else if (formDataObj.content.length === 0 && formDataObj.files.length === 0) {
+                        } else if (formDataObj.content.trim().length === 0 && formDataObj.files.length === 0) {
+                            formFiles.value = ''
+                            formContent.innerText = ''
                             return alert('Message cannot be empty!')
                         }
                         formDataObj.content = formDataObj.content.trim()
                         // set files
-                        const files = [...e.target.children.namedItem('files').files]
+                        const files = [...e.target.querySelector('[data-name="files"]').files]
                         const fileObjs = []
                         for (let i = 0; i < files.length; i++) {
                             fileObjs.push({
@@ -378,10 +383,11 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         await socket.emit('messageCreate-server', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, message: formDataObj })
                         // clear form and images
                         setImg([])
-                        e.target.reset()
+                        formFiles.value = ''
+                        formContent.innerText = ''
                     }
                 }>
-                    <input name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
+                    <input data-name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
                         // TODO: validate file size and (look at todo below)
                         const files = [...img, ...e.target.files]
                         const totalSizeBytes = (files.reduce((acc, file) => {
@@ -426,8 +432,104 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
                         file_upload
                     </label>
-                    <div className={chatStyles.messageTextContainer} style={{ color: fontColor, fontWeight: fontColor ? 'bold' : 'normal' }} data-length="">
-                        <textarea name={"content"} className={chatStyles.messageTextArea} placeholder={`Send a message to ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
+                    <div className={chatStyles.messageTextContainer} data-length="" data-overflow="">
+                        {/* create a div area to represent a textbox */}
+                        <div data-name={'content'} className={chatStyles.contentEditableMessageArea} contentEditable={true}
+                            role="textbox"
+                            onPaste={(e) => {
+                                e.preventDefault()
+                                const text = e.clipboardData.getData('text/plain')
+                                document.execCommand('insertText', false, text)
+                                e.target.scrollTop = e.target.scrollHeight * 1000
+                            }}
+                            onInput={(e) => { // validating characters length
+                                const text = e.target.innerText
+                                const parent = e.target.parentElement
+                                const MAX_LENGTH = 5000
+
+                                // scroll height
+                                e.target.style.height = 'auto';
+                                e.target.parentElement.style.height = 'auto'
+                                const newHeight = text.length == 0 ? '36px' : (e.target.scrollHeight + 2) + 'px';
+                                e.target.style.height = newHeight
+                                e.target.parentElement.style.height = newHeight
+
+                                // validating length
+                                if (text.length > 10000) {
+                                    e.target.value = text.slice(0, 10000)
+                                } else {
+                                    if (MAX_LENGTH - text.length < 0) {
+                                        parent.dataset.length = MAX_LENGTH - text.length
+                                        parent.dataset.overflow = 'true'
+                                    } else if (MAX_LENGTH - text.length < 500) {
+                                        parent.dataset.length = text.length
+                                        parent.dataset.overflow = 'false'
+                                    } else {
+                                        parent.dataset.length = ""
+                                        parent.dataset.overflow = 'false'
+                                    }
+                                }
+                            }}
+                            onSelect={(e) => { // TODO: fix the selection thing not working with contenteditable
+                                const text = e.target.innerText
+                                const codeBlockIndices = getIndicesOf('```', text, false)
+                                if (codeBlockIndices.length === 0) return
+                                if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
+
+                                // check if the cursor is in a code block
+                                const states = []
+                                for (let i = 0; i < codeBlockIndices.length; i += 2) {
+                                    const start = codeBlockIndices[i]
+                                    const end = codeBlockIndices[i + 1]
+
+                                    if (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3 && e.target.selectionStart <= end) {
+                                        states.push(true)
+                                    } else if (!end && e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3) {
+                                        states.push(true)
+                                    } else {
+                                        states.push(false)
+                                    }
+                                }
+
+                                if (states.includes(true)) setInCodeBlock(true)
+                                else setInCodeBlock(false)
+
+                                setCursorPosition(e.target.selectionStart)
+                            }}
+                            onKeyDown={(e) => { // TODO: fix the selection thing not working with contenteditable
+                                if (e.key == 'Enter' && !e.shiftKey && !inCodeBlock) {
+                                    e.preventDefault()
+                                    document.querySelector('[data-messageSubmit="true"]').click() // submit form
+                                    return
+                                }
+                                if (inCodeBlock) {
+                                    switch (e.key) {
+                                        case 'Enter':
+                                            e.preventDefault()
+                                            // insert new line at cursor
+                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\n' + e.target.value.substring(cursorPosition)
+                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+
+                                            // readjust height
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = e.target.value.length == 0 ? '36px' : e.target.scrollHeight + 'px';
+
+                                            // scroll down one line (based off line height)
+                                            e.target.scrollTop = e.target.scrollTop + 22
+                                            break
+                                        case 'Tab':
+                                            e.preventDefault()
+                                            // insert tab at cursor
+                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\t' + e.target.value.substring(cursorPosition)
+                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+                                            break
+                                    }
+                                }
+                            }}
+                        >
+                        </div>
+
+                        {/* <textarea data-name={'content'} name={"content"} className={chatStyles.messageTextArea} placeholder={`Send a message to ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
                             onInput={(e) => { // validating characters length
                                 const text = e.target.value
                                 const parent = e.target.parentElement
@@ -507,9 +609,9 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                                     }
                                 }
                             }}
-                        ></textarea>
+                        ></textarea> */}
                     </div>
-                    <button type={"submit"} className={chatStyles.messageInputSubmit}>send</button>
+                    <button type={"submit"} className={chatStyles.messageInputSubmit} data-messageSubmit>send</button>
                 </form>
             </div>
         </div>
@@ -518,7 +620,12 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 export function Message({ message, user }) {
     const codeBlocks = message.message.content.split('```')
     return (
-        <div id={message.id} className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
+        <div id={message.id} className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}
+            onContextMenu={(e) => {
+                console.log('message context menu')
+                console.log(e.nativeEvent.composedPath())
+            }}
+        >
             <img className={chatStyles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
 
             <div className={chatStyles.messageContainer}>
@@ -738,7 +845,7 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
             </div>
             <div className={videoStyles.videoControlsContainer}>
                 <div className={videoStyles.timelineContainer}>
-                    <input className={videoStyles.timeline} step={0.001} type="range" min="0" max={durationRef.current} value={currentTimeRef.current} onChange={(e) => setCurrentTime(e.target.value)} />
+                    <input className={videoStyles.timeline} step={'any'} type="range" min="0" max={durationRef.current} value={currentTimeRef.current} onChange={(e) => setCurrentTime(e.target.value)} />
                 </div>
                 <div className={videoStyles.controls}>
                     <button className={videoStyles.playPauseBtn} onClick={() => setPlaying(!playing)}>
@@ -1000,4 +1107,39 @@ export function PageLoading() {
             <Spinner color={SPINNER_COLOR} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
         </div>
     )
+}
+
+// Custom Context Menu
+export function ContextMenu({ x, y, type }) {
+    // messages, groups, users, files, 
+
+}
+export function MesasgeContextMenu({ message }) {
+    return (// message id, copy message content, delete message if author, 
+        <div className={contextMenuStyles.contextMenuContainer}>
+            <div className={contextMenuStyles.contextMenuItem}>
+                <div className={contextMenuStyles.contextMenuItemText}></div>
+                <div className={contextMenuStyles.contextMenuItemIcon}>
+                    <svg class="icon-E4cW1l" aria-hidden="false" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M5 2C3.34315 2 2 3.34315 2 5V19C2 20.6569 3.34315 22 5 22H19C20.6569 22 22 20.6569 22 19V5C22 3.34315 20.6569 2 19 2H5ZM8.79741 7.72V16H6.74541V7.72H8.79741ZM13.2097 7.72C16.0897 7.72 17.5897 9.388 17.5897 11.848C17.5897 14.308 16.0537 16 13.2577 16H10.3537V7.72H13.2097ZM13.1497 14.404C14.6137 14.404 15.5257 13.636 15.5257 11.86C15.5257 10.12 14.5537 9.316 13.1497 9.316H12.4057V14.404H13.1497Z"></path></svg>
+                </div>
+            </div>
+            <div className={contextMenuStyles.contextMenuItem}>
+                <div className={contextMenuStyles.contextMenuItemText}></div>
+                <div className={contextMenuStyles.contextMenuItemIcon}></div>
+            </div>
+            <div className={contextMenuStyles.contextMenuItem}>
+                <div className={contextMenuStyles.contextMenuItemText}></div>
+                <div className={contextMenuStyles.contextMenuItemIcon}></div>
+            </div>
+        </div>
+    )
+}
+export function GroupContextMenu() {
+
+}
+export function UserContextMenu() {
+
+}
+export function FileContextMenu() {
+
 }
