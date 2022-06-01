@@ -1,12 +1,14 @@
 // Styles
 import styles from "../../styles/Home.module.css";
-import videoStyles from "../../styles/VideoOverlay.module.css";
-import audioStyles from "../../styles/AudioOverlay.module.css";
-import fileStyles from "../../styles/FileViews.module.css";
+import chatStyles from "../../styles/ChatStyles/ChatComponentStyles.module.css";
+import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css";
+import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
+import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
+import fileStyles from "../../styles/FileViews/FileViews.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
 import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, getIndicesOf } from "./util";
-import { Spinner } from "./inputComponents";
+import { Spinner } from "./formComponents";
 // Util Packages
 import jsCookie from "js-cookie";
 import moment from "moment";
@@ -51,21 +53,21 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
     }, 1000, [order])
 
     useEffect(() => { // update the order of the groups (visually) when the order changes
-        const draggables = document.querySelectorAll(`.${styles.group}`);
-        const container = document.querySelector(`.${styles.groups}`);
+        const draggables = document.querySelectorAll(`.${groupStyles.group}`);
+        const container = document.querySelector(`.${groupStyles.groups}`);
         draggables.forEach(draggable => {
             draggable.addEventListener('dragstart', () => {
-                draggable.classList.add(styles.dragging);
+                draggable.classList.add(groupStyles.dragging);
             });
             draggable.addEventListener('dragend', () => {
-                draggable.classList.remove(styles.dragging);
+                draggable.classList.remove(groupStyles.dragging);
             });
         })
 
         container.addEventListener('dragover', e => {
             e.preventDefault()
             const afterElement = getDragAfterElement(container, e.clientY)
-            const draggable = document.querySelector(`.${styles.dragging}`)
+            const draggable = document.querySelector(`.${groupStyles.dragging}`)
             if (draggable.nextSibling === afterElement) return // prevent unnecessary DOM changes
             if (afterElement == null) {
                 container.appendChild(draggable)
@@ -84,7 +86,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
         })
 
         function getDragAfterElement(container, y) {
-            const draggableElements = [...container.querySelectorAll(`.${styles.group}:not(.${styles.dragging})`)]
+            const draggableElements = [...container.querySelectorAll(`.${groupStyles.group}:not(.${groupStyles.dragging})`)]
 
             return draggableElements.reduce((closest, child) => {
                 const box = child.getBoundingClientRect()
@@ -100,7 +102,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
 
     return (
         <div
-            className={styles.left}
+            className={groupStyles.left}
             style={{
                 minWidth: menuState ? '46px' : '350px',
                 width: menuState ? '46px' : '360px',
@@ -108,14 +110,14 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
                 resize: menuState ? 'none' : 'horizontal',
                 overflow: 'hidden',
             }}
-        ><div className={styles.groupsContainer}>
-                <div className={styles.groups} style={{ opacity: menuState ? '0' : '1' }}>
+        ><div className={groupStyles.groupsContainer}>
+                <div className={groupStyles.groups} style={{ opacity: menuState ? '0' : '1' }}>
                     {
                         groups.length > 0 ?
                             groups.map(group => {
                                 return (
                                     // group container
-                                    <div key={group.id} data-groupid={group.id} data-selected={currentGroup && group.id == currentGroup.id} className={styles.group} draggable onClick={() => {
+                                    <div key={group.id} data-groupid={group.id} data-selected={currentGroup && group.id == currentGroup.id} className={groupStyles.group} draggable onClick={() => {
                                         if (currentGroup && group.id == currentGroup.id) {
                                             history.pushState({ currentGroup: null }, null, `/`)
                                             dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
@@ -125,24 +127,24 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
                                         }
 
                                     }}>
-                                        <div className={styles.groupImage}>
+                                        <div className={groupStyles.groupImage}>
                                             {
-                                                group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={styles.groupImage} alt={`${group.name}'s icon`} /> :
-                                                    <img title={`${group.name}'s icon`} src={`/api/v1/data/images/default`} loading={"lazy"} className={styles.groupImage} alt={`${group.name}'s icon`} />
+                                                group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} /> :
+                                                    <img title={`${group.name}'s icon`} src={`/api/v1/data/images/default`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
                                             }
                                         </div>
-                                        <div className={styles.groupInfo}>
-                                            <h4 title={group.name} className={styles.groupTitle}>{shortenName(group.name)}</h4>
-                                            <div title={`Members: ${group.members.length}`} className={styles.numOfMembers}>Members: {group.members.length}</div>
+                                        <div className={groupStyles.groupInfo}>
+                                            <h4 title={group.name} className={groupStyles.groupTitle}>{shortenName(group.name)}</h4>
+                                            <div title={`Members: ${group.members.length}`} className={groupStyles.numOfMembers}>Members: {group.members.length}</div>
                                         </div>
-                                        <div className={styles.lastMsg}></div>
+                                        <div className={groupStyles.lastMsg}></div>
                                     </div>
                                 )
                             }) :
-                            <div className={styles.noGroupsContainer}>
+                            <div className={groupStyles.noGroupsContainer}>
                                 <div></div>
                                 <h2 style={{ textAlign: 'center' }}>No Direct Messages or Groups created/joined</h2>
-                                <div className={styles.joinGroup} onClick={() => {
+                                <div className={groupStyles.joinGroup} onClick={() => {
                                     // TODO: pop up a modal to create a group or to create a dm
                                 }}>control_point</div>
                                 <div></div>
@@ -152,7 +154,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
                 {
                     groups.length > 0 ?
                         <div style={{ display: `${menuState ? 'none' : 'flex'}`, justifyContent: 'center' }}>
-                            <div className={styles.joinGroup} style={{ marginTop: '20px', fontSize: '50px' }} onClick={() => {
+                            <div className={groupStyles.joinGroup} style={{ marginTop: '20px', fontSize: '50px' }} onClick={() => {
                                 // TODO: pop up a modal to create a group or to create a dm
                             }}>control_point</div>
                         </div> :
@@ -160,7 +162,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
 
                 }
             </div>
-            <a className={styles.arrow} style={{ transform: `${menuState ? 'rotate(180deg)' : 'rotate(0deg)'}` }} onClick={
+            <a className={groupStyles.arrow} style={{ transform: `${menuState ? 'rotate(180deg)' : 'rotate(0deg)'}` }} onClick={
                 (e) => {
                     setMenuState(!menuState)
                 }
@@ -193,7 +195,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     }
 
     function scrollMessagesDiv(pos = null) {
-        const msgsContainer = document.querySelector(`.${styles.messages}`)
+        const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
         msgsContainer.scrollTo(null, pos ? pos : msgsContainer.scrollHeight)
     }
 
@@ -215,7 +217,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     }, [currentGroup])
     useEffect(scrollMessagesDiv, [msgsLoading && !messages.find(grp => grp.id === currentGroup.id)]) // scroll to bottom when messages load for the first time only
     useEffect(() => {
-        const msgsContainer = document.querySelector(`.${styles.messages}`)
+        const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
         const curGrpMessages = messages.find(grp => grp.id === currentGroup.id)
 
         if (msgsLoading.includes(currentGroup.id) && curGrpMessages) {
@@ -226,7 +228,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     const newMsgsObj = [{ messages: newAppendedMessages, id: currentGroup.id }].concat(messages.filter(grp => grp.id !== currentGroup.id))
 
                     // set top element in messages viewport 
-                    const msgs = msgsContainer.querySelectorAll(`.${styles.message}`)
+                    const msgs = msgsContainer.querySelectorAll(`.${stylchatStyleses.message}`)
                     if (msgs) {
                         const topMsg = [...msgs].find(msg => msg.getBoundingClientRect().top > 0)
                         topMsg.ref = topEl
@@ -264,9 +266,9 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     }, [messages.length > 0])
 
     return (
-        <div className={styles.main}>
+        <div className={chatStyles.main}>
             {/* messages display */}
-            <div className={styles.messages}
+            <div className={chatStyles.messages}
                 // scrolling for loading more messages
                 onScroll={(e) => {
                     const scrollTop = e.target.scrollTop
@@ -291,7 +293,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             >
                 {
                     msgsLoading.includes(currentGroup.id) && messages.find(grp => grp.id === currentGroup.id) ?
-                        <div className={styles.msgsLoading}>
+                        <div className={chatStyles.msgsLoading}>
                             <Spinner width={'40px'} height={'40px'} color={SPINNER_COLOR} thickness={'5px'} />
                         </div> : null
                 }
@@ -302,19 +304,19 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                                 <Message key={message.id} message={message} user={user} />
                             )
                         }) :
-                        <div className={styles.msgsLoading}>
+                        <div className={chatStyles.msgsLoading}>
                             <Spinner width={'40px'} height={'40px'} color={SPINNER_COLOR} thickness={'5px'} />
                         </div>
                 }
             </div>
             {/* scroll down button */}
-            <div className={styles.scrollContainer} style={{ opacity: scrollButton ? '' : '0', pointerEvents: scrollButton ? '' : 'none' }} onClick={
+            <div className={chatStyles.scrollContainer} style={{ opacity: scrollButton ? '' : '0', pointerEvents: scrollButton ? '' : 'none' }} onClick={
                 (e) => {
-                    const msgsContainer = document.querySelector(`.${styles.messages}`)
+                    const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
                     msgsContainer.scrollTo({ top: msgsContainer.scrollHeight, behavior: 'smooth' })
                 }
             }>
-                <span className={styles.overflowButton} title={"Scroll To Bottom"}>keyboard_double_arrow_down</span>
+                <span className={chatStyles.overflowButton} title={"Scroll To Bottom"}>keyboard_double_arrow_down</span>
             </div>
             {/* message part */}
             {/* images */}
@@ -340,11 +342,11 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                 })
             }
             {/* message input */}
-            <div className={styles.messageInputContainer}>
-                <form className={styles.messageInputForm} encType={"multipart/form-data"} onSubmit={
+            <div className={chatStyles.messageInputContainer}>
+                <form className={chatStyles.messageInputForm} encType={"multipart/form-data"} onSubmit={
                     async (e) => {
                         e.preventDefault()
-                        const textarea = e.target.querySelector(`.${styles.messageTextArea}`)
+                        const textarea = e.target.querySelector(`.${chatStyles.messageTextArea}`)
                         textarea.style.height = 'auto';
                         textarea.style.height = '36px';
                         // get formdata
@@ -421,11 +423,11 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                             })
                         }
                     }} />
-                    <label htmlFor={"file-upload"} className={styles.fileUpload}>
+                    <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
                         file_upload
                     </label>
-                    <div className={styles.messageTextContainer} style={{ color: fontColor, fontWeight: fontColor ? 'bold' : 'normal' }} data-length="">
-                        <textarea name={"content"} className={styles.messageTextArea} placeholder={`Send a message to ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
+                    <div className={chatStyles.messageTextContainer} style={{ color: fontColor, fontWeight: fontColor ? 'bold' : 'normal' }} data-length="">
+                        <textarea name={"content"} className={chatStyles.messageTextArea} placeholder={`Send a message to ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
                             onInput={(e) => { // validating characters length
                                 const text = e.target.value
                                 const parent = e.target.parentElement
@@ -507,7 +509,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                             }}
                         ></textarea>
                     </div>
-                    <button type={"submit"} className={styles.messageInputSubmit}>send</button>
+                    <button type={"submit"} className={chatStyles.messageInputSubmit}>send</button>
                 </form>
             </div>
         </div>
@@ -516,43 +518,42 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 export function Message({ message, user }) {
     const codeBlocks = message.message.content.split('```')
     return (
-        <div id={message.id} className={styles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
-            <img className={styles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
+        <div id={message.id} className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
+            <img className={chatStyles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
 
-            <div className={styles.messageContainer}>
-                <div className={styles.messageHeader}>
-                    <h4 className={styles.messageAuthor}>{message.author.username}</h4>
-                    <div className={styles.messageInfo}>
-                        <div className={styles.messageInfoSect}>
-                            <span className={styles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
-                            <span className={styles.messageEdited} title={"This message was edited."}>{message.edited ? '(edited)' : ''}</span>
+            <div className={chatStyles.messageContainer}>
+                <div className={chatStyles.messageHeader}>
+                    <h4 className={chatStyles.messageAuthor}>{message.author.username}</h4>
+                    <div className={chatStyles.messageInfo}>
+                        <div className={chatStyles.messageInfoSect}>
+                            <span className={chatStyles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
+                            <span className={chatStyles.messageEdited} title={"This message was edited."}>{message.edited ? '(edited)' : ''}</span>
                         </div>
-                        <span className={styles.messageOptions}>more_horiz</span>
+                        <span className={chatStyles.messageOptions}>more_horiz</span>
                     </div>
                 </div>
-                <div className={styles.messageBody} style={{ height: '100%' }}>
-                    <div className={styles.messageContentContainer}>
+                <div className={chatStyles.messageBody} style={{ height: '100%' }}>
+                    <div className={chatStyles.messageContentContainer}>
                         {
                             codeBlocks.length >= 3 ? (
                                 codeBlocks.map((codeBlock, i) => {
                                     if ((i + 1) % 2 == 0) {
                                         return (
-                                            <pre key={i} className={styles.messageContentCode} dangerouslySetInnerHTML={{ __html: hljs.highlightAuto(codeBlock).value }}>
+                                            <pre key={i} className={chatStyles.messageContentCode} dangerouslySetInnerHTML={{ __html: hljs.highlightAuto(codeBlock).value }}>
                                             </pre>
                                         )
                                     } else {
                                         return (
-                                            <div key={i} className={styles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(codeBlock) }} ></div>
+                                            <div key={i} className={chatStyles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(codeBlock) }} ></div>
                                         )
                                     }
                                 })
                             ) : (
-                                <div className={styles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(message.message.content, { mangle: true, smartypants: true }) }} ></div>
+                                <div className={chatStyles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(message.message.content, { mangle: true, smartypants: true }) }} ></div>
                             )
                         }
-                        {/* <div className={styles.messageContentMarkdown}>{message.message.content}</div> */}
                     </div>
-                    <div className={styles.messageFiles}>{message.message.files.map((fileInfo) => {
+                    <div className={chatStyles.messageFiles}>{message.message.files.map((fileInfo) => {
                         const data = Buffer.isBuffer(fileInfo.data) ? fileInfo.data.toString('base64') : fileInfo.data
                         const fileSize = data ? calculateFileSize(data) : 0
                         const name = fileInfo.name

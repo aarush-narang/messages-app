@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { useState } from "react";
-import styles from "../../styles/Forms.module.css";
-import { SignUpPasswordInput, Button, Input, ErrorMessage } from '../components/inputComponents'
+import styles from "../../styles/FormStyles/Forms.module.css";
+import { SignUpPasswordInput, Button, Input, ErrorMessage } from '../components/formComponents'
 import { FormPagesHeader } from "../components/header";
 import { csrf } from "../../lib/middleware";
 import * as cookie from 'cookie'

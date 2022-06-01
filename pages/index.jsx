@@ -18,6 +18,7 @@ export default function Home({ data, csrfToken }) {
                     <Head>
                         <title>Messages</title>
                     </Head>
+                    
                 </div>
             </>
 

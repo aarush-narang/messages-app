@@ -1,4 +1,4 @@
-import styles from "../../styles/FormComponents.module.css";
+import styles from "../../styles/FormStyles/FormComponents.module.css";
 import ErrorPage from 'next/error'
 import { useState } from "react";
 

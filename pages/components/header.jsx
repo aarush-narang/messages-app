@@ -1,5 +1,5 @@
 import styles from '../../styles/Header.module.css'
-import { Button } from './inputComponents'
+import { Button } from './formComponents'
 import Cookies from 'js-cookie'
 import { useState } from 'react'
 import { useRefetchToken } from './util'
