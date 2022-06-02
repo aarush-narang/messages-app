@@ -20,7 +20,8 @@ import 'highlight.js/styles/atom-one-dark.css'
 import { marked } from "marked";
 
 const SPINNER_COLOR = '#2e8283'
-const MAX_FILE_SIZE = 100; // MB
+const MAX_FILE_SIZE_BYTES = 100 * (1024 * 1024); // 100 MB in bytes (100 is MB)
+const MAX_MESSAGE_LEN = 6000
 
 // Main Components For Chat
 export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket }) {
@@ -228,7 +229,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     const newMsgsObj = [{ messages: newAppendedMessages, id: currentGroup.id }].concat(messages.filter(grp => grp.id !== currentGroup.id))
 
                     // set top element in messages viewport 
-                    const msgs = msgsContainer.querySelectorAll(`.${stylchatStyleses.message}`)
+                    const msgs = msgsContainer.querySelectorAll(`.${chatStyles.message}`)
                     if (msgs) {
                         const topMsg = [...msgs].find(msg => msg.getBoundingClientRect().top > 0)
                         topMsg.ref = topEl
@@ -246,10 +247,12 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         }
     }, [msgsLoading.includes(currentGroup.id)])
 
-
     useEffect(() => {
         if (messages.length <= 0) return;
         socket.on('messageCreate-client', (msg) => {
+            const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
+            const scrollCond = msgsContainer.scrollTop == msgsContainer.scrollHeight - msgsContainer.clientHeight
+
             const files = msg.message.message.files
             if (files) {
                 // convert array buffer files to base64
@@ -257,11 +260,20 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     files[i].data = Buffer.from(files[i].data, 'binary').toString('base64')
                 }
             }
-            console.log(messagesRef.current.find(grp => grp.id === msg.groupId), messagesRef.current.find(grp => grp.id === msg.groupId).messages)
-            const newMsgs = messagesRef.current.find(grp => grp.id === msg.groupId).messages.concat([msg.message])
-            const newMsgsObj = [{ messages: newMsgs, id: msg.groupId }].concat(messagesRef.current.filter(grp => grp.id !== msg.groupId))
+            const grpMsgs = messagesRef.current.find(grp => grp.id === msg.groupId)
+            let newMsgsObj
+            if (grpMsgs) {
+                const newMsgs = grpMsgs.messages.concat([msg.message])
+                newMsgsObj = [{ messages: newMsgs, id: msg.groupId }].concat(messagesRef.current.filter(grp => grp.id !== msg.groupId))
+            } else {
+                newMsgsObj = [{ messages: [msg.message], id: msg.groupId }].concat(messagesRef.current.filter(grp => grp.id !== msg.groupId))
+            }
             setMessages(newMsgsObj)
-            scrollMessagesDiv()
+
+            // if the message is in the current group and the chat is scrolled to the bottom or if the message is from the user
+            if ((currentGroup.id == msg.groupId && scrollCond) || msg.message.author.uid == user.uid) {
+                scrollMessagesDiv()
+            }
         })
     }, [messages.length > 0])
 
@@ -345,25 +357,24 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             <div className={chatStyles.messageInputContainer}>
                 <form className={chatStyles.messageInputForm} encType={"multipart/form-data"} onSubmit={
                     async (e) => {
+                        const msgInput = document.querySelector('[data-name="content"]')
+                        const msgInputContainer = msgInput.parentElement
+                        const msgInputParent = msgInputContainer.parentElement
+                        const fileInput = document.querySelector('[data-name="files"]')
                         e.preventDefault()
-                        const textarea = e.target.querySelector('[data-name="content"]')
-                        textarea.style.height = 'auto';
-                        textarea.style.height = '36px';
                         // get formdata
-                        const formFiles = document.querySelector('[data-name="files"]')
-                        const formContent = document.querySelector('[data-name="content"]')
                         const formDataObj = {
-                            files: formFiles.value,
-                            content: formContent.innerText
+                            files: fileInput.value,
+                            content: msgInput.innerText
                         }
                         // remove empty values
                         if (formDataObj.files && formDataObj.files.size === 0) formDataObj.files = []
                         // confirm message length
-                        if (formDataObj.content.length > 5000) {
+                        if (formDataObj.content.length > MAX_MESSAGE_LEN) {
                             return alert('Message too long!')
                         } else if (formDataObj.content.trim().length === 0 && formDataObj.files.length === 0) {
-                            formFiles.value = ''
-                            formContent.innerText = ''
+                            fileInput.value = ''
+                            msgInput.innerText = ''
                             return alert('Message cannot be empty!')
                         }
                         formDataObj.content = formDataObj.content.trim()
@@ -381,237 +392,162 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 
                         // send message
                         await socket.emit('messageCreate-server', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, message: formDataObj })
-                        // clear form and images
+                        // reset form and images
                         setImg([])
-                        formFiles.value = ''
-                        formContent.innerText = ''
+                        fileInput.value = ''
+                        msgInput.innerText = ''
+                        msgInput.style.height = null
+                        msgInputContainer.style.height = null
+                        msgInputParent.dataset.length = '0'
+                        msgInputParent.dataset.overflow = ''
                     }
                 }>
-                    <input data-name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
-                        // TODO: validate file size and (look at todo below)
-                        const files = [...img, ...e.target.files]
-                        const totalSizeBytes = (files.reduce((acc, file) => {
-                            return acc + file.size
-                        }, 0))
-                        if (totalSizeBytes / (1024 * 1024) > MAX_FILE_SIZE) {
-                            // TODO: show error on a modal
-                            alert('Max File Size is 5MB, your file is ' + formatBytes(totalSizeBytes))
-                            e.target.value = ''
-                            setImg([])
-                        } else if (img.length + files.length > 5 || files.length > 5) {
-                            alert('Max number of files that can be uploaded is 5, you have ' + (img.length + files.length > 5 ? img.length : files.length) + ' files')
-                            e.target.value = ''
-                            setImg([])
-                        } else {
-                            // TODO: show images above the input and allow to remove them (like discord)
-                            function readFileAsText(file) {
-                                return new Promise(function (resolve, reject) {
-                                    let fr = new FileReader();
-                                    fr.onloadend = function () {
-                                        resolve(fr.result);
-                                    };
-                                    fr.onerror = function () {
-                                        reject(fr);
-                                    };
-                                    fr.readAsDataURL(file);
-                                });
+                    <div className={chatStyles.messageButtons}>
+                        <input data-name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
+                            const files = [...img, ...e.target.files]
+                            const totalSizeBytes = (files.reduce((acc, file) => {
+                                return acc + file.size
+                            }, 0))
+                            if (totalSizeBytes > MAX_FILE_SIZE_BYTES) {
+                                // TODO: show error on a modal
+                                alert(`Max File Size is ${formatBytes(MAX_FILE_SIZE_BYTES)}, your file(s) total ${formatBytes(totalSizeBytes)}`)
+                                e.target.value = ''
+                                setImg([])
+                            } else if (img.length + files.length > 5 || files.length > 5) {
+                                alert('Max number of files that can be uploaded is 5, you have ' + (img.length + files.length > 5 ? img.length : files.length) + ' files')
+                                e.target.value = ''
+                                setImg([])
+                            } else {
+                                // TODO: show images above the input and allow to remove them (like discord)
+                                function readFileAsText(file) {
+                                    return new Promise(function (resolve, reject) {
+                                        let fr = new FileReader();
+                                        fr.onloadend = function () {
+                                            resolve(fr.result);
+                                        };
+                                        fr.onerror = function () {
+                                            reject(fr);
+                                        };
+                                        fr.readAsDataURL(file);
+                                    });
+                                }
+                                const readers = []
+                                for (let i = 0; i < files.length; i++) {
+                                    readers.push(readFileAsText(files[i]))
+                                }
+                                Promise.allSettled(readers).then(async (results) => {
+                                    for (let i = 0; i < results.length; i++) {
+                                        if (results[i].status === 'fulfilled') {
+                                            setImg(img.concat([{ base64: results[i].value, name: files[i].name }]))
+                                        }
+                                    }
+                                })
                             }
-                            const readers = []
-                            for (let i = 0; i < files.length; i++) {
-                                readers.push(readFileAsText(files[i]))
-                            }
-                            Promise.allSettled(readers).then(async (results) => {
-                                for (let i = 0; i < results.length; i++) {
-                                    if (results[i].status === 'fulfilled') {
-                                        setImg(img.concat([{ base64: results[i].value, name: files[i].name }]))
-                                    }
-                                }
-                            })
-                        }
-                    }} />
-                    <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
-                        file_upload
-                    </label>
-                    <div className={chatStyles.messageTextContainer} data-length="" data-overflow="">
-                        {/* create a div area to represent a textbox */}
-                        <div data-name={'content'} className={chatStyles.contentEditableMessageArea} contentEditable={true}
-                            role="textbox"
-                            onPaste={(e) => {
-                                e.preventDefault()
-                                const text = e.clipboardData.getData('text/plain')
-                                document.execCommand('insertText', false, text)
-                                e.target.scrollTop = e.target.scrollHeight * 1000
-                            }}
-                            onInput={(e) => { // validating characters length
-                                const text = e.target.innerText
-                                const parent = e.target.parentElement
-                                const MAX_LENGTH = 5000
-
-                                // scroll height
-                                e.target.style.height = 'auto';
-                                e.target.parentElement.style.height = 'auto'
-                                const newHeight = text.length == 0 ? '36px' : (e.target.scrollHeight + 2) + 'px';
-                                e.target.style.height = newHeight
-                                e.target.parentElement.style.height = newHeight
-
-                                // validating length
-                                if (text.length > 10000) {
-                                    e.target.value = text.slice(0, 10000)
-                                } else {
-                                    if (MAX_LENGTH - text.length < 0) {
-                                        parent.dataset.length = MAX_LENGTH - text.length
-                                        parent.dataset.overflow = 'true'
-                                    } else if (MAX_LENGTH - text.length < 500) {
-                                        parent.dataset.length = text.length
-                                        parent.dataset.overflow = 'false'
-                                    } else {
-                                        parent.dataset.length = ""
-                                        parent.dataset.overflow = 'false'
-                                    }
-                                }
-                            }}
-                            onSelect={(e) => { // TODO: fix the selection thing not working with contenteditable
-                                const text = e.target.innerText
-                                const codeBlockIndices = getIndicesOf('```', text, false)
-                                if (codeBlockIndices.length === 0) return
-                                if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
-
-                                // check if the cursor is in a code block
-                                const states = []
-                                for (let i = 0; i < codeBlockIndices.length; i += 2) {
-                                    const start = codeBlockIndices[i]
-                                    const end = codeBlockIndices[i + 1]
-
-                                    if (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3 && e.target.selectionStart <= end) {
-                                        states.push(true)
-                                    } else if (!end && e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3) {
-                                        states.push(true)
-                                    } else {
-                                        states.push(false)
-                                    }
-                                }
-
-                                if (states.includes(true)) setInCodeBlock(true)
-                                else setInCodeBlock(false)
-
-                                setCursorPosition(e.target.selectionStart)
-                            }}
-                            onKeyDown={(e) => { // TODO: fix the selection thing not working with contenteditable
-                                if (e.key == 'Enter' && !e.shiftKey && !inCodeBlock) {
-                                    e.preventDefault()
-                                    document.querySelector('[data-messageSubmit="true"]').click() // submit form
-                                    return
-                                }
-                                if (inCodeBlock) {
-                                    switch (e.key) {
-                                        case 'Enter':
-                                            e.preventDefault()
-                                            // insert new line at cursor
-                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\n' + e.target.value.substring(cursorPosition)
-                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
-
-                                            // readjust height
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.value.length == 0 ? '36px' : e.target.scrollHeight + 'px';
-
-                                            // scroll down one line (based off line height)
-                                            e.target.scrollTop = e.target.scrollTop + 22
-                                            break
-                                        case 'Tab':
-                                            e.preventDefault()
-                                            // insert tab at cursor
-                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\t' + e.target.value.substring(cursorPosition)
-                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
-                                            break
-                                    }
-                                }
-                            }}
-                        >
-                        </div>
-
-                        {/* <textarea data-name={'content'} name={"content"} className={chatStyles.messageTextArea} placeholder={`Send a message to ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
-                            onInput={(e) => { // validating characters length
-                                const text = e.target.value
-                                const parent = e.target.parentElement
-                                const MAX_LENGTH = 5000
-
-                                // scroll height
-                                e.target.style.height = 'auto';
-                                e.target.style.height = text.length == 0 ? '36px' : e.target.scrollHeight + 'px';
-
-                                // validating length
-                                if (text.length > 10000) {
-                                    e.target.value = text.slice(0, 10000)
-                                } else {
-                                    if (MAX_LENGTH - text.length < 0) {
-                                        parent.dataset.length = MAX_LENGTH - text.length
-                                        setFontColor('var(--color-error-dark)')
-                                    } else if (MAX_LENGTH - text.length < 500) {
-                                        parent.dataset.length = text.length
-                                        setFontColor('')
-                                    } else {
-                                        parent.dataset.length = ""
-                                    }
-                                }
-                            }}
-                            onSelect={(e) => {
-                                const codeBlockIndices = getIndicesOf('```', e.target.value, false)
-                                if (codeBlockIndices.length === 0) return
-                                if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
-
-                                // check if the cursor is in a code block
-                                const states = []
-                                for (let i = 0; i < codeBlockIndices.length; i += 2) {
-                                    const start = codeBlockIndices[i]
-                                    const end = codeBlockIndices[i + 1]
-
-                                    if (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3 && e.target.selectionStart <= end) {
-                                        states.push(true)
-                                    } else if (!end && e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3) {
-                                        states.push(true)
-                                    } else {
-                                        states.push(false)
-                                    }
-                                }
-
-                                if (states.includes(true)) setInCodeBlock(true)
-                                else setInCodeBlock(false)
-
-                                setCursorPosition(e.target.selectionStart)
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key == 'Enter' && !e.shiftKey && !inCodeBlock) {
-                                    e.preventDefault()
-                                    e.target.form.querySelector('[type="submit"]').click() // submit form
-                                    return
-                                }
-                                if (inCodeBlock) {
-                                    switch (e.key) {
-                                        case 'Enter':
-                                            e.preventDefault()
-                                            // insert new line at cursor
-                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\n' + e.target.value.substring(cursorPosition)
-                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
-
-                                            // readjust height
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.value.length == 0 ? '36px' : e.target.scrollHeight + 'px';
-
-                                            // scroll down one line (based off line height)
-                                            e.target.scrollTop = e.target.scrollTop + 22
-                                            break
-                                        case 'Tab':
-                                            e.preventDefault()
-                                            // insert tab at cursor
-                                            e.target.value = e.target.value.substring(0, cursorPosition) + '\t' + e.target.value.substring(cursorPosition)
-                                            e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
-                                            break
-                                    }
-                                }
-                            }}
-                        ></textarea> */}
+                        }} />
+                        <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
+                            file_upload
+                        </label>
+                        <button type={"submit"} className={chatStyles.messageInputSubmit} data-messagesubmit>send</button>
                     </div>
-                    <button type={"submit"} className={chatStyles.messageInputSubmit} data-messageSubmit>send</button>
+
+                    <div className={chatStyles.messageTextContainer} data-length="0" data-overflow=""
+                        onClick={(e) => {
+                            document.querySelector('[role="textbox"]').focus()
+                        }}
+                    >
+                        <div className={chatStyles.contentEditableMessageAreaContainer}>
+                            <div data-name={'content'} className={chatStyles.contentEditableMessageArea} contentEditable={true} role="textbox" data-placeholder={`Message ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
+                                onPaste={(e) => {
+                                    e.preventDefault()
+                                    const text = e.clipboardData.getData('text/plain')
+                                    document.execCommand('insertText', false, text)
+                                    e.target.scrollTop = e.target.scrollHeight * 1000
+                                }}
+                                onInput={(e) => { // validating characters length
+                                    const text = e.target.innerText
+                                    const parent = e.target.parentElement
+                                    const mainCont = parent.parentElement
+
+                                    // scroll height
+                                    e.target.style.height = 'auto';
+                                    e.target.parentElement.style.height = 'auto'
+                                    const newHeight = text.length == 0 ? null : (e.target.scrollHeight + 2) + 'px';
+                                    e.target.style.height = newHeight
+                                    e.target.parentElement.style.height = newHeight
+
+                                    // validating length
+                                    if (MAX_MESSAGE_LEN - text.length < 0) {
+                                        mainCont.dataset.length = MAX_MESSAGE_LEN - text.length
+                                        mainCont.dataset.overflow = 'error'
+                                    } else if (MAX_MESSAGE_LEN - text.length <= 500) {
+                                        mainCont.dataset.length = text.length
+                                        mainCont.dataset.overflow = 'warn'
+                                    } else {
+                                        mainCont.dataset.length = text.length
+                                        mainCont.dataset.overflow = ''
+                                    }
+
+                                }}
+                                onSelect={(e) => { // TODO: fix the selection thing not working with contenteditable
+                                    const text = e.target.innerText
+                                    const codeBlockIndices = getIndicesOf('```', text, false)
+                                    if (codeBlockIndices.length === 0) return
+                                    if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
+
+                                    // check if the cursor is in a code block
+                                    const states = []
+                                    for (let i = 0; i < codeBlockIndices.length; i += 2) {
+                                        const start = codeBlockIndices[i]
+                                        const end = codeBlockIndices[i + 1]
+
+                                        if (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3 && e.target.selectionStart <= end) {
+                                            states.push(true)
+                                        } else if (!end && e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3) {
+                                            states.push(true)
+                                        } else {
+                                            states.push(false)
+                                        }
+                                    }
+
+                                    if (states.includes(true)) setInCodeBlock(true)
+                                    else setInCodeBlock(false)
+
+                                    setCursorPosition(e.target.selectionStart)
+                                }}
+                                onKeyDown={(e) => { // TODO: fix the selection thing not working with contenteditable
+                                    if (e.key == 'Enter' && !e.shiftKey && !inCodeBlock) {
+                                        e.preventDefault()
+                                        document.querySelector('[data-messagesubmit="true"]').click() // submit form
+                                        return
+                                    }
+                                    if (inCodeBlock) {
+                                        switch (e.key) {
+                                            case 'Enter':
+                                                e.preventDefault()
+                                                // insert new line at cursor
+                                                e.target.innerText = e.target.innerText.substring(0, cursorPosition) + '\n' + e.target.innerText.substring(cursorPosition)
+                                                e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+
+                                                // readjust height
+                                                e.target.style.height = null;
+                                                e.target.parentElement.style.height = null
+
+                                                // scroll down one line (based off line height)
+                                                e.target.scrollTop = e.target.scrollTop + 22
+                                                break
+                                            case 'Tab':
+                                                e.preventDefault()
+                                                // insert tab at cursor
+                                                e.target.innerText = e.target.innerText.substring(0, cursorPosition) + '\t' + e.target.innerText.substring(cursorPosition)
+                                                e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
+                                                break
+                                        }
+                                    }
+                                }}
+                            >
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -639,7 +575,7 @@ export function Message({ message, user }) {
                         <span className={chatStyles.messageOptions}>more_horiz</span>
                     </div>
                 </div>
-                <div className={chatStyles.messageBody} style={{ height: '100%' }}>
+                <div className={chatStyles.messageBody} >
                     <div className={chatStyles.messageContentContainer}>
                         {
                             codeBlocks.length >= 3 ? (
@@ -656,7 +592,7 @@ export function Message({ message, user }) {
                                     }
                                 })
                             ) : (
-                                <div className={chatStyles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(message.message.content, { mangle: true, smartypants: true }) }} ></div>
+                                <div className={chatStyles.messageContentMarkdown}>{message.message.content}</div>
                             )
                         }
                     </div>
@@ -669,7 +605,7 @@ export function Message({ message, user }) {
                         const generalType = mimeType.split('/')[0]
                         const specificType = mimeType.split('/')[1]
 
-                        switch (true) {
+                        switch (true) { // HIGH PRIORITY FIX: MEMORY LEAK HERE WHEN GROUP IS CHANGED & FILES ARE RE-RENDERED OR REMOVED
                             case generalType === 'image' && specificType === 'apng':
                             case generalType === 'image' && specificType === 'avif':
                             case generalType === 'image' && specificType === 'jpeg':
@@ -677,11 +613,11 @@ export function Message({ message, user }) {
                             case generalType === 'image' && specificType === 'svg':
                             case generalType === 'image' && specificType === 'webp':
                                 return <ImageFileView key={data} alt={name} data={data} name={name} mimeType={mimeType} fileSize={fileSize} />
-                            case generalType === 'audio' && specificType === 'ogg':
-                            case generalType === 'audio' && specificType === 'mp3':
-                            case generalType === 'audio' && specificType === 'wav':
-                            case generalType === 'audio' && specificType === 'mpeg':
-                                return <AudioFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                            // case generalType === 'audio' && specificType === 'ogg':
+                            // case generalType === 'audio' && specificType === 'mp3':
+                            // case generalType === 'audio' && specificType === 'wav':
+                            // case generalType === 'audio' && specificType === 'mpeg':
+                            //     return <AudioFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
                             case generalType === 'video' && specificType === 'ogg':
                             case generalType === 'video' && specificType === 'mp4':
                             case generalType === 'video' && specificType === 'webm':
@@ -730,6 +666,8 @@ export function TextFileView({ name, mimeType, data, fileSize }) {
         </pre>
     )
 }
+
+// MEMORY LEAK FIX WITH VIDEO AND AUDIO VIEWS
 export function VideoFileView({ data, name, mimeType, fileSize }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
@@ -809,6 +747,12 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         } else if (document.fullscreenElement) {
             document.exitFullscreen()
         }
+
+        return () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen()
+            }
+        }
     }, [fullscreen])
     useEffect(() => {
         videoRef.current.volume = volume
@@ -831,6 +775,13 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
                 setPbSpeedMenuState(false)
             }
         })
+
+        return () => {
+            data = null
+            name = null
+            mimeType = null
+            fileSize = null
+        }
     }, [])
     return (
         <div className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef}>
@@ -1076,6 +1027,8 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
         </div>
     )
 }
+
+
 export function ImageFileView({ data, name, mimeType, fileSize }) {
     return <img className={fileStyles.messageFile} alt={name} src={`data:${mimeType};base64,${data}`} title={name} />
 }

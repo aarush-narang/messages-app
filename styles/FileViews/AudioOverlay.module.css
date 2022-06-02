@@ -205,7 +205,7 @@
     position: absolute;
     background: none;
     left: 14px;
-    bottom: 12px;
+    bottom: 18px;
     width: 0;
     transform-origin: left;
     transform: scaleY(0) rotate(-90deg);

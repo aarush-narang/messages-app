@@ -18,33 +18,33 @@
 
     min-width: max-content;
     max-width: 100%;
-    padding: 10px 9px;
+    padding: 10px;
 }
 
 .messageInputForm {
-    display: grid;
+    display: flex;
     position: relative;
-    grid-template-columns: 40px 14fr 40px;
-    grid-template-rows: 1fr;
     background-color: #214E56;
-    border-radius: 30px;
-
-    padding: 10px;
+    border-radius: 4px;
+    padding: 6px 0px;
     width: 100%;
     height: 100%;
 }
 
-/* max character limit */
 .messageTextContainer {
-    color: var(--font-color);
     display: flex;
     justify-content: center;
+    cursor: text;
     align-items: center;
-    max-height: 30vh;
     overflow-x: hidden;
     overflow-y: auto;
+    color: var(--font-color);
+    width: 100%;
+    min-height: 48px;
 }
-.messageTextContainer::after {
+/* max character limit */
+.messageTextContainer[data-overflow="warn"]::after,
+.messageTextContainer[data-overflow="error"]::after {
     content: attr(data-length);
     position: absolute;
 
@@ -52,98 +52,87 @@
     font-size: 16px;
     opacity: 0.8;
 
-    top: 15px;
-    right: 10px;
+    top: 8px;
+    right: 15px;
     margin-right: 4px;
 }
-.messageTextContainer[data-overflow="true"]::after {
+.messageTextContainer[data-overflow="error"]::after {
     color: var(--color-error-dark);
 }
 
-
-
-
-
-.messageTextArea {
-    justify-self: center;
-    resize: none;
-    overflow: auto;
-
-    font-family: Urbanist;
-    font-size: 15px;
-    color: var(--font-color);
-    line-height: 22px;
-    letter-spacing: 0.05px;
-
-    height: 36px;
-    max-height: 40vh;
-    width: 97%;
-
-    background-color: transparent;
-    border: none;
-    outline: none;
-
-    padding: 1px 5px;
-    margin: 0 5px;
-}
-.messageTextArea::placeholder {
-    content: attr(placeholder);
-    color: var(--font-color);
-    opacity: 0.6;
-    font-style: italic;
-}
-
 .contentEditableMessageAreaContainer {
-
+    position: relative;
+    width: 100%;
+    margin: 0 4px;
+    height: 24px;
+    overflow-y: hidden;
+    max-height: 40vh;
 }
 .contentEditableMessageArea {
     white-space: pre-wrap;
     overflow-wrap: break-word;
     outline: none;
     position: absolute;
-    min-height: 65%;
-    width: 100%;
-    max-height: 30vh;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 0 60px;
+
+    font-size: 16px;
+
     line-height: 22px;
     letter-spacing: 0.05px;
+    width: 100%;
+    height: 100%;
+    max-height: 40vh;
+    padding: 0 58px;
+}
+.messageTextContainer[data-length="0"] .contentEditableMessageArea::before {
+    content: attr(data-placeholder);
+    pointer-events: none;
+    user-select: none;
+    vertical-align: middle;
+    
+    color: var(--font-color-secondary);
+    opacity: 0.8;
 }
 
-
-
-
-
-
-
+/* Message Buttons */
+.messageButtons {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    position: absolute;
+    padding: 0 16px 10px 16px;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+}
+/* File Button */
 .fileUpload {
-    display: flex;
-    justify-content: center;
-    align-self: flex-end;
-    align-items: center;
+    text-align: center;
+    vertical-align: middle;
     transition: 150ms ease;
     cursor: pointer;
     user-select: none;
 
     max-width: 40px;
     aspect-ratio: 1;
+    padding: 4px;
 
     background-color: hsl(190, 60%, 15%);
     font-family: var(--icons-font-family);
-    font-size: 150%;
+    font-size: 175%;
     color: hsl(171, 30%, 61%);
 
     border: none;
     outline: none;
     border-radius: 100%;
+    z-index: 1000;
 }
 
+/* Message Submit Button */
 .messageInputSubmit {
-    display: flex;
-    justify-content: center;
-    align-self: flex-end;
-    align-items: center;
+    text-align: center;
+    vertical-align: middle;
     user-select: none;
     background-color: hsl(190, 60%, 15%);
     cursor: pointer;
@@ -157,6 +146,7 @@
     aspect-ratio: 1;
     max-width: 40px;
     transition: 150ms ease;
+    z-index: 1000;
 }
 
 .messageInputSubmit:hover,
@@ -274,6 +264,7 @@
 /* message body (content + files) */
 .messageBody {
     padding: 5px 0;
+    height: 100%;
 }
 
 .messageContentContainer {

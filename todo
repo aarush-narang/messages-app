@@ -1,23 +1,19 @@
-# PRIORITY:
-- add placeholder to new contenteditable textbox
-- fix lagging with syntax highlighting and add it to the textarea as well. or maybe replace textarea with div-contenteditable
 - FIX MEMORY LEAK WITH FILES WHEN CURRENT GROUP IS CHANGED
-- paste image in message area
-- fix logout issue with brave browser?
-- replace all alerts on frontend with modals
 - create context menu for groups, messages, people, etc. (like discord) create event listener on doc and check what was right clicked and based off that change the context menu, add read receipts to this. [Example for custom contextmenu](https://itnext.io/how-to-create-a-custom-right-click-menu-with-javascript-9c368bb58724)
-- load X messages at a time, when they reach the top of the scroll, load more so it doesn't use too much bandwidth
-- right click context menu is also the same as the ... on each message, changed for a message type
+
+# PRIORITY:
+- fix lagging with syntax highlighting and add it to the textarea as well. or maybe replace textarea with div-contenteditable
+- paste image in message area
+- fix logout issue with brave browser? and other browsers that block tracking and ip grabbing
+- replace all alerts on frontend with modals
 - manage (SOCKET EVENTS)
-    - file uploads
-    - messages
     - message edits
     - message deletes 
     - new groups (create modal first)
-    - If new message, scroll all the way down unless
-        ```js
-        msgsContainer.scrollTop <= msgsContainer.scrollHeight - (3*msgsContainer.clientHeight) 
-        ```
+    - plus other events
+
+## BUGS:
+- all "FIX" or "TODO" comments
 
 ## MODALS & CONTEXT MENU:
 - create "saved!" modal for updating things like account settings, group order, etc.
@@ -33,6 +29,5 @@ fix header sizing
 come up with ways to remove refresh tokens automatically that are not being used (max number of sessions?)
 
 ## OTHER:
-- add remember me option in signin page?
-- create visitor page
+- create visitor page with parallax effect (use fireship video for tutorial)
 - search through all files for other TODOs not listed here
