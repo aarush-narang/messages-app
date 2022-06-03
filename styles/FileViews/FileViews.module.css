@@ -1,4 +1,9 @@
 /* files */
+.messageFiles {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 .messageFile {
     margin-top: 10px;
 }
@@ -65,11 +70,6 @@ pre.messageFile .preFileSize {
     margin-right: 4px;
 }
 
-/* audio file */
-audio.messageFile {
-    max-width: 100%;
-}
-
 /* message file link */
 .fileViewContainer {
     display: grid;
@@ -84,7 +84,6 @@ audio.messageFile {
     width: 100%;
     height: 100%;
     border-radius: 4px;
-    margin-top: 10px;
 }
 
 .fileImage,

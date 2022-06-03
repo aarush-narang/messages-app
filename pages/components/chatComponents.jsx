@@ -1,11 +1,10 @@
 // Styles
-import styles from "../../styles/Home.module.css";
 import chatStyles from "../../styles/ChatStyles/ChatComponentStyles.module.css";
 import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css";
 import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
 import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews/FileViews.module.css";
-import contextMenuStyles from "../../styles/ContextMenuStyles.module.css";
+import contextMenuStyles from "../../styles/ChatStyles/ContextMenuStyles.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
 import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, getIndicesOf } from "./util";
@@ -13,11 +12,6 @@ import { Spinner } from "./formComponents";
 // Util Packages
 import jsCookie from "js-cookie";
 import moment from "moment";
-// Code Highlighting
-import hljs from 'highlight.js'
-import 'highlight.js/styles/atom-one-dark.css'
-// Markdown Parser
-import { marked } from "marked";
 
 const SPINNER_COLOR = '#2e8283'
 const MAX_FILE_SIZE_BYTES = 100 * (1024 * 1024); // 100 MB in bytes (100 is MB)
@@ -119,28 +113,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
                             groups.map(group => {
                                 return (
                                     // group container
-                                    <div key={group.id} data-groupid={group.id} data-selected={currentGroup && group.id == currentGroup.id} className={groupStyles.group} draggable onClick={() => {
-                                        if (currentGroup && group.id == currentGroup.id) {
-                                            history.pushState({ currentGroup: null }, null, `/`)
-                                            dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
-                                        } else {
-                                            history.pushState({ currentGroup: group }, null, `/groups/${group.id}`)
-                                            dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group } }))
-                                        }
-
-                                    }}>
-                                        <div className={groupStyles.groupImage}>
-                                            {
-                                                group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} /> :
-                                                    <img title={`${group.name}'s icon`} src={`/api/v1/data/images/default`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
-                                            }
-                                        </div>
-                                        <div className={groupStyles.groupInfo}>
-                                            <h4 title={group.name} className={groupStyles.groupTitle}>{shortenName(group.name)}</h4>
-                                            <div title={`Members: ${group.members.length}`} className={groupStyles.numOfMembers}>Members: {group.members.length}</div>
-                                        </div>
-                                        <div className={groupStyles.lastMsg}></div>
-                                    </div>
+                                    <Group key={group.id} group={group} currentGroup={currentGroup} />
                                 )
                             }) :
                             <div className={groupStyles.noGroupsContainer}>
@@ -172,6 +145,33 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
         </div>
     );
 }
+export function Group({ group, currentGroup }) {
+    return (
+        <div key={group.id} data-contexttype="GROUP" data-groupid={group.id} data-selected={currentGroup && group.id == currentGroup.id} className={groupStyles.group} draggable onClick={() => {
+            if (currentGroup && group.id == currentGroup.id) {
+                history.pushState({ currentGroup: null }, null, `/`)
+                dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
+            } else {
+                history.pushState({ currentGroup: group }, null, `/groups/${group.id}`)
+                dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group } }))
+            }
+
+        }}>
+            <div className={groupStyles.groupImage}>
+                {
+                    group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} /> :
+                        <img title={`${group.name}'s icon`} src={`/api/v1/data/images/default`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
+                }
+            </div>
+            <div className={groupStyles.groupInfo}>
+                <h4 title={group.name} className={groupStyles.groupTitle}>{shortenName(group.name)}</h4>
+                <div title={`Members: ${group.members.length}`} className={groupStyles.numOfMembers}>Members: {group.members.length}</div>
+            </div>
+            <div className={groupStyles.lastMsg}></div>
+        </div>
+    )
+}
+
 export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState, socket }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) {
         return (
@@ -183,8 +183,6 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     const [scrollButton, setScrollButton] = useState(false) // if the chat is scrolled high enough, show the scroll to bottom button
     const [msgsLoading, setMsgsLoading] = useState([]) // groups that have messages loading
     const [maxMessages, setMaxMessages] = useState([]) // groups that have reached their max messages
-    const [inCodeBlock, setInCodeBlock] = useState(false) // if the user is in a code block
-    const [cursorPosition, setCursorPosition] = useState(0) // the cursor position in the message input
     const topEl = useRef(null) // the message at the top of the chat
 
     const [messages, _setMessages] = msgsState // messages of each group that have been loaded. Stored in parent component to avoid losing data when navigating between groups
@@ -488,60 +486,11 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                                     }
 
                                 }}
-                                onSelect={(e) => { // TODO: fix the selection thing not working with contenteditable
-                                    const text = e.target.innerText
-                                    const codeBlockIndices = getIndicesOf('```', text, false)
-                                    if (codeBlockIndices.length === 0) return
-                                    if (codeBlockIndices.length % 2 !== 0) codeBlockIndices.push(null)
-
-                                    // check if the cursor is in a code block
-                                    const states = []
-                                    for (let i = 0; i < codeBlockIndices.length; i += 2) {
-                                        const start = codeBlockIndices[i]
-                                        const end = codeBlockIndices[i + 1]
-
-                                        if (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3 && e.target.selectionStart <= end) {
-                                            states.push(true)
-                                        } else if (!end && e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart >= start + 3) {
-                                            states.push(true)
-                                        } else {
-                                            states.push(false)
-                                        }
-                                    }
-
-                                    if (states.includes(true)) setInCodeBlock(true)
-                                    else setInCodeBlock(false)
-
-                                    setCursorPosition(e.target.selectionStart)
-                                }}
-                                onKeyDown={(e) => { // TODO: fix the selection thing not working with contenteditable
-                                    if (e.key == 'Enter' && !e.shiftKey && !inCodeBlock) {
+                                onKeyDown={(e) => {
+                                    if (e.key == 'Enter' && !e.shiftKey) {
                                         e.preventDefault()
                                         document.querySelector('[data-messagesubmit="true"]').click() // submit form
                                         return
-                                    }
-                                    if (inCodeBlock) {
-                                        switch (e.key) {
-                                            case 'Enter':
-                                                e.preventDefault()
-                                                // insert new line at cursor
-                                                e.target.innerText = e.target.innerText.substring(0, cursorPosition) + '\n' + e.target.innerText.substring(cursorPosition)
-                                                e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
-
-                                                // readjust height
-                                                e.target.style.height = null;
-                                                e.target.parentElement.style.height = null
-
-                                                // scroll down one line (based off line height)
-                                                e.target.scrollTop = e.target.scrollTop + 22
-                                                break
-                                            case 'Tab':
-                                                e.preventDefault()
-                                                // insert tab at cursor
-                                                e.target.innerText = e.target.innerText.substring(0, cursorPosition) + '\t' + e.target.innerText.substring(cursorPosition)
-                                                e.target.setSelectionRange(cursorPosition + 1, cursorPosition + 1)
-                                                break
-                                        }
                                     }
                                 }}
                             >
@@ -554,19 +503,13 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
     )
 }
 export function Message({ message, user }) {
-    const codeBlocks = message.message.content.split('```')
     return (
-        <div id={message.id} className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}
-            onContextMenu={(e) => {
-                console.log('message context menu')
-                console.log(e.nativeEvent.composedPath())
-            }}
-        >
-            <img className={chatStyles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
+        <div id={message.id} data-contexttype="MESSAGE" className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
+            <img data-contexttype="USER" className={chatStyles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
 
             <div className={chatStyles.messageContainer}>
                 <div className={chatStyles.messageHeader}>
-                    <h4 className={chatStyles.messageAuthor}>{message.author.username}</h4>
+                    <h4 className={chatStyles.messageAuthor} data-contexttype="USER">{message.author.username}</h4>
                     <div className={chatStyles.messageInfo}>
                         <div className={chatStyles.messageInfoSect}>
                             <span className={chatStyles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
@@ -577,63 +520,44 @@ export function Message({ message, user }) {
                 </div>
                 <div className={chatStyles.messageBody} >
                     <div className={chatStyles.messageContentContainer}>
+                        <div className={chatStyles.messageContentMarkdown} data-message-content>{message.message.content}</div>
+                    </div>
+                    <div className={fileStyles.messageFiles}>
                         {
-                            codeBlocks.length >= 3 ? (
-                                codeBlocks.map((codeBlock, i) => {
-                                    if ((i + 1) % 2 == 0) {
-                                        return (
-                                            <pre key={i} className={chatStyles.messageContentCode} dangerouslySetInnerHTML={{ __html: hljs.highlightAuto(codeBlock).value }}>
-                                            </pre>
-                                        )
-                                    } else {
-                                        return (
-                                            <div key={i} className={chatStyles.messageContentMarkdown} dangerouslySetInnerHTML={{ __html: marked(codeBlock) }} ></div>
-                                        )
-                                    }
-                                })
-                            ) : (
-                                <div className={chatStyles.messageContentMarkdown}>{message.message.content}</div>
-                            )
+                            message.message.files.map((fileInfo, i) => {
+                                const data = Buffer.isBuffer(fileInfo.data) ? fileInfo.data.toString('base64') : fileInfo.data
+                                const fileSize = data ? calculateFileSize(data) : 0
+                                const name = fileInfo.name
+
+                                const mimeType = fileInfo.mimeType
+                                const generalType = mimeType.split('/')[0]
+                                const specificType = mimeType.split('/')[1]
+
+                                switch (true) {
+                                    case generalType === 'image' && specificType === 'apng':
+                                    case generalType === 'image' && specificType === 'avif':
+                                    case generalType === 'image' && specificType === 'jpeg':
+                                    case generalType === 'image' && specificType === 'png':
+                                    case generalType === 'image' && specificType === 'svg':
+                                    case generalType === 'image' && specificType === 'webp':
+                                        return <ImageFileView key={`${i} ${data}`} alt={name} data={data} name={name} mimeType={mimeType} fileSize={fileSize} />
+                                    case generalType === 'audio' && specificType === 'ogg':
+                                    case generalType === 'audio' && specificType === 'mp3':
+                                    case generalType === 'audio' && specificType === 'wav':
+                                    case generalType === 'audio' && specificType === 'mpeg':
+                                        return <AudioFileView key={`${i} ${data}`} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                                    case generalType === 'video' && specificType === 'ogg':
+                                    case generalType === 'video' && specificType === 'mp4':
+                                    case generalType === 'video' && specificType === 'webm':
+                                        return <VideoFileView key={`${i} ${data}`} name={name} mimeType={mimeType} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                                    case generalType === 'text':
+                                        return <TextFileView key={`${i} ${data}`} data={data} fileSize={fileSize} mimeType={mimeType} name={name} />
+                                    default:
+                                        return <DefaultFileView key={`${i} ${data}`} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                                }
+                            })
                         }
                     </div>
-                    <div className={chatStyles.messageFiles}>{message.message.files.map((fileInfo) => {
-                        const data = Buffer.isBuffer(fileInfo.data) ? fileInfo.data.toString('base64') : fileInfo.data
-                        const fileSize = data ? calculateFileSize(data) : 0
-                        const name = fileInfo.name
-
-                        const mimeType = fileInfo.mimeType
-                        const generalType = mimeType.split('/')[0]
-                        const specificType = mimeType.split('/')[1]
-
-                        switch (true) { // HIGH PRIORITY FIX: MEMORY LEAK HERE WHEN GROUP IS CHANGED & FILES ARE RE-RENDERED OR REMOVED
-                            case generalType === 'image' && specificType === 'apng':
-                            case generalType === 'image' && specificType === 'avif':
-                            case generalType === 'image' && specificType === 'jpeg':
-                            case generalType === 'image' && specificType === 'png':
-                            case generalType === 'image' && specificType === 'svg':
-                            case generalType === 'image' && specificType === 'webp':
-                                return <ImageFileView key={data} alt={name} data={data} name={name} mimeType={mimeType} fileSize={fileSize} />
-                            // case generalType === 'audio' && specificType === 'ogg':
-                            // case generalType === 'audio' && specificType === 'mp3':
-                            // case generalType === 'audio' && specificType === 'wav':
-                            // case generalType === 'audio' && specificType === 'mpeg':
-                            //     return <AudioFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
-                            case generalType === 'video' && specificType === 'ogg':
-                            case generalType === 'video' && specificType === 'mp4':
-                            case generalType === 'video' && specificType === 'webm':
-                                return <VideoFileView key={data} name={name} mimeType={mimeType} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
-                            case generalType === 'text':
-                                return <TextFileView key={data} data={data} fileSize={fileSize} mimeType={mimeType} name={name} />
-                            // case generalType === 'text' && specificType === 'markdown': // TODO: markdown viewer
-                            //     return (
-                            //         <div>
-                            //             {marked.parse(Buffer.from(`data:${mimeType};base64,${data}`, 'base64').toString('utf-8'))}
-                            //         </div>
-                            //     )
-                            default:
-                                return <DefaultFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
-                        }
-                    })}</div>
                 </div>
             </div>
         </div>
@@ -644,7 +568,7 @@ export function Message({ message, user }) {
 export function TextFileView({ name, mimeType, data, fileSize }) {
     const [textFileState, setTextFileState] = useState(false)
     return (
-        <pre key={data} wrap={"true"} className={fileStyles.messageFile}>
+        <pre data-contexttype="FILE" key={data} wrap={"true"} className={fileStyles.messageFile}>
             <div className={fileStyles.preHeader}>
                 <div className={fileStyles.preTitle}>
                     <div style={{ fontSize: '15px' }}>{shortenFileName(name, 10)}</div>
@@ -666,8 +590,6 @@ export function TextFileView({ name, mimeType, data, fileSize }) {
         </pre>
     )
 }
-
-// MEMORY LEAK FIX WITH VIDEO AND AUDIO VIEWS
 export function VideoFileView({ data, name, mimeType, fileSize }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
@@ -766,25 +688,27 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     useEffect(() => {
         videoRef.current.playbackRate = parseFloat(playbackSpeed)
     }, [playbackSpeed])
+
     useEffect(() => {
-        document.addEventListener('fullscreenchange', () => {
+        function handleFullScreenChange() {
             setFullscreen(document.fullscreenElement != null)
-        })
-        document.addEventListener('click', (e) => {
+        }
+        function handleClickEvent(e) {
             if (!e.composedPath().includes(pbSpeedElementRef.current)) {
                 setPbSpeedMenuState(false)
             }
-        })
+        }
 
-        return () => {
-            data = null
-            name = null
-            mimeType = null
-            fileSize = null
+        document.addEventListener('fullscreenchange', handleFullScreenChange)
+        document.addEventListener('click', handleClickEvent)
+
+        return () => { // cleanup event listeners
+            document.removeEventListener('fullscreenchange', handleFullScreenChange)
+            document.removeEventListener('click', handleClickEvent)
         }
     }, [])
     return (
-        <div className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef}>
+        <div data-contexttype="FILE" className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef}>
             <div className={videoStyles.videoInformationContainer}>
                 <div className={videoStyles.videoInformation}>
                     <div className={videoStyles.videoHeader}>
@@ -951,16 +875,21 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
         audioRef.current.playbackRate = parseFloat(playbackSpeed)
     }, [playbackSpeed])
     useEffect(() => {
-        document.addEventListener('click', (e) => {
+        function handleClickEvent(e) {
             if (!e.composedPath().includes(pbSpeedElementRef.current)) {
                 setPbSpeedMenuState(false)
             }
-        })
+        }
+        document.addEventListener('click', handleClickEvent)
+
+        return () => { // cleanup event listener
+            document.removeEventListener('click', handleClickEvent)
+        }
     }, [])
 
     // controls: play/pause, duration and current time, timeline, volume/mute, playback speed, download
     return (
-        <div className={audioStyles.audioContainer} data-playing={playing} ref={audioContainerRef}>
+        <div data-contexttype="FILE" className={audioStyles.audioContainer} data-playing={playing} ref={audioContainerRef}>
             <div className={audioStyles.audioControls}>
                 <button className={audioStyles.playPauseBtn} onClick={() => setPlaying(!playing)}>
                     {
@@ -1027,27 +956,166 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
         </div>
     )
 }
-
-
 export function ImageFileView({ data, name, mimeType, fileSize }) {
-    return <img className={fileStyles.messageFile} alt={name} src={`data:${mimeType};base64,${data}`} title={name} />
+    return <img data-contexttype="FILE" className={fileStyles.messageFile} alt={name} src={`data:${mimeType};base64,${data}`} title={name} />
 }
 export function DefaultFileView({ data, name, mimeType, fileSize }) {
     return (
-        <div className={fileStyles.fileViewContainer}>
-            <div className={fileStyles.fileImage}>draft</div>
-            <div className={fileStyles.fileInfo}>
-                <a className={fileStyles.fileName} title={name} href={data} download={name} onClick={(e) => {
-                    e.preventDefault()
+        <div data-contexttype="FILE" className={fileStyles.messageFile}>
+            <div className={fileStyles.fileViewContainer}>
+                <div className={fileStyles.fileImage}>draft</div>
+                <div className={fileStyles.fileInfo}>
+                    <a className={fileStyles.fileName} title={name} href={data} download={name} onClick={(e) => {
+                        e.preventDefault()
+                        downloadBase64File(data, name)
+                    }}>{shortenFileName(name, 8)}</a>
+                    <div className={fileStyles.fileSize} title={fileSize}>{fileSize}</div>
+                </div>
+                <div className={fileStyles.fileDownload} onClick={(e) => {
                     downloadBase64File(data, name)
-                }}>{shortenFileName(name, 8)}</a>
-                <div className={fileStyles.fileSize} title={fileSize}>{fileSize}</div>
+                }}>file_download</div>
             </div>
-            <div className={fileStyles.fileDownload} onClick={(e) => {
-                downloadBase64File(data, name)
-            }}>file_download</div>
         </div>
+
     )
+}
+
+// Custom Context Menu
+export function ContextMenu({ x, y, type, data, currentGroup, user, messages }) {
+    if (type == null) return <></>
+    // messages, groups, users, files
+    // Menu Position
+    const menuStyles = {
+        left: `${x}px`,
+        top: `${y}px`,
+    }
+    if (x > window.innerWidth / 2) {
+        menuStyles.left = ''
+        menuStyles.right = `${window.innerWidth - x}px`
+    }
+    if (y > window.innerHeight / 2) {
+        menuStyles.top = ''
+        menuStyles.bottom = `${window.innerHeight - y}px`
+    }
+
+    switch (type.toUpperCase()) {
+        case "MESSAGE":
+            {
+
+                return (
+                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
+                        <MessageContextMenu messageData={data} group={currentGroup} user={user} messages={messages} />
+                    </div>
+                )
+            }
+        case "USER":
+            {
+                console.log('user context menu')
+                return (
+                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
+                        <UserContextMenu />
+                    </div>
+                )
+            }
+        case "GROUP":
+            {
+                console.log('group context menu')
+                return (
+                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
+
+                    </div>
+                )
+            }
+        case "FILE":
+            {
+                console.log('file context menu')
+                return (
+                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
+
+                    </div>
+                )
+            }
+        case "NONE":
+        default:
+            return <></>
+    }
+}
+export function MessageContextMenu({ group, user, messages, messageData }) {
+    const groupID = group.id
+    const messageID = messageData.id
+    // Current Message
+    const groupMessages = messages.find(grp => grp.id == groupID).messages
+    const message = groupMessages.find(msg => msg.id == messageID)
+
+    if (message == null) return <></>
+
+    // Message Data
+    const messageContent = message.message.content
+    const messageLink = `http://localhost:3000/groups/${groupID}/messages/${messageID}`
+
+    const author = user.uid == message.author.uid
+
+    return (// message id, copy message content, edit message if author, delete message if author
+        <ul className={contextMenuStyles.contextMenuContainer}>
+            <li className={contextMenuStyles.contextMenuItem}
+                onClick={async () => {
+                    await navigator.clipboard.writeText(messageContent)
+                }}
+            >
+                <div className={contextMenuStyles.contextMenuItemText}>Copy Content</div>
+                <div className={contextMenuStyles.contextMenuItemIcon}>content_copy</div>
+            </li>
+            <li className={contextMenuStyles.contextMenuItem}
+                onClick={async () => {
+                    await navigator.clipboard.writeText(messageLink)
+                }}
+            >
+                <div className={contextMenuStyles.contextMenuItemText}>Copy Message Link</div>
+                <div className={contextMenuStyles.contextMenuItemIcon}>link</div>
+            </li>
+            { // TODO: implement message editing and deletion
+                author ?
+                    (
+                        <>
+                            <li className={contextMenuStyles.contextMenuItem}>
+                                <div className={contextMenuStyles.contextMenuItemText}>Edit Message</div>
+                                <div className={contextMenuStyles.contextMenuItemIcon}>edit</div>
+                            </li>
+                            <li className={`${contextMenuStyles.contextMenuItem} ${contextMenuStyles.contextMenuItemErr}`}>
+                                <div className={`${contextMenuStyles.contextMenuItemText} ${contextMenuStyles.contextMenuItemTextErr}`}>Delete Message</div>
+                                <div className={`${contextMenuStyles.contextMenuItemIcon} ${contextMenuStyles.contextMenuItemTextErr}`}>delete</div>
+                            </li>
+                        </>
+                    )
+                    :
+                    null
+            }
+            <li className={contextMenuStyles.contextMenuItem}
+                onClick={async () => {
+                    await navigator.clipboard.writeText(messageID)
+                }}
+            >
+                <div className={contextMenuStyles.contextMenuItemText}>Copy ID</div>
+                <div className={contextMenuStyles.contextMenuItemIcon}>apps</div>
+            </li>
+        </ul>
+    )
+}
+export function UserContextMenu({ }) {
+    return (
+        <ul className={contextMenuStyles.contextMenuContainer}>
+            <li className={contextMenuStyles.contextMenuItem}>
+                <div className={contextMenuStyles.contextMenuItemText}>asd</div>
+                <div className={contextMenuStyles.contextMenuItemIcon}></div>
+            </li>
+        </ul>
+    )
+}
+export function GroupContextMenu({ }) {
+
+}
+export function FileContextMenu() {
+
 }
 
 // Extra
@@ -1060,39 +1128,4 @@ export function PageLoading() {
             <Spinner color={SPINNER_COLOR} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
         </div>
     )
-}
-
-// Custom Context Menu
-export function ContextMenu({ x, y, type }) {
-    // messages, groups, users, files, 
-
-}
-export function MesasgeContextMenu({ message }) {
-    return (// message id, copy message content, delete message if author, 
-        <div className={contextMenuStyles.contextMenuContainer}>
-            <div className={contextMenuStyles.contextMenuItem}>
-                <div className={contextMenuStyles.contextMenuItemText}></div>
-                <div className={contextMenuStyles.contextMenuItemIcon}>
-                    <svg class="icon-E4cW1l" aria-hidden="false" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M5 2C3.34315 2 2 3.34315 2 5V19C2 20.6569 3.34315 22 5 22H19C20.6569 22 22 20.6569 22 19V5C22 3.34315 20.6569 2 19 2H5ZM8.79741 7.72V16H6.74541V7.72H8.79741ZM13.2097 7.72C16.0897 7.72 17.5897 9.388 17.5897 11.848C17.5897 14.308 16.0537 16 13.2577 16H10.3537V7.72H13.2097ZM13.1497 14.404C14.6137 14.404 15.5257 13.636 15.5257 11.86C15.5257 10.12 14.5537 9.316 13.1497 9.316H12.4057V14.404H13.1497Z"></path></svg>
-                </div>
-            </div>
-            <div className={contextMenuStyles.contextMenuItem}>
-                <div className={contextMenuStyles.contextMenuItemText}></div>
-                <div className={contextMenuStyles.contextMenuItemIcon}></div>
-            </div>
-            <div className={contextMenuStyles.contextMenuItem}>
-                <div className={contextMenuStyles.contextMenuItemText}></div>
-                <div className={contextMenuStyles.contextMenuItemIcon}></div>
-            </div>
-        </div>
-    )
-}
-export function GroupContextMenu() {
-
-}
-export function UserContextMenu() {
-
-}
-export function FileContextMenu() {
-
 }

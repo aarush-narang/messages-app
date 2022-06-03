@@ -1,0 +1,58 @@
+.contextMenuWrapper {
+    position: absolute;
+    z-index: 9999;
+
+    width: 200px;
+    height: fit-content;
+    background-color: hsl(190, 74%, 13%);
+    border-radius: 5px;
+    padding: 2px;
+}
+.contextMenuContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 4px;
+    border-radius: 4px;
+}
+.contextMenuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    width: 100%;
+    font-family: var(--symbols-font-family);
+    color: var(--font-color);
+    padding: 6px 8px;
+    border-radius: 6px;
+}
+.contextMenuItem:hover {
+    background-color: hsl(190, 34%, 43%);
+    color: hsl(174, 85%, 7%);
+}
+
+
+.contextMenuItemErr:hover {
+    background-color: var(--color-error-dark);
+}
+.contextMenuItemErr:hover .contextMenuItemTextErr {
+    color: var(--font-color);
+}
+/* Text and Icons */
+.contextMenuItemText {
+    font-family: Urbanist;
+    font-size: 15px;
+}
+.contextMenuItemTextErr {
+    color: var(--color-error-dark);
+    font-weight: bold;
+    letter-spacing: 0.8px;
+}
+.contextMenuItemIcon {
+    aspect-ratio: 1;
+    font-size: 20px;
+}

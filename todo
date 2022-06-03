@@ -1,11 +1,12 @@
-- FIX MEMORY LEAK WITH FILES WHEN CURRENT GROUP IS CHANGED
 - create context menu for groups, messages, people, etc. (like discord) create event listener on doc and check what was right clicked and based off that change the context menu, add read receipts to this. [Example for custom contextmenu](https://itnext.io/how-to-create-a-custom-right-click-menu-with-javascript-9c368bb58724)
-
-# PRIORITY:
+- add code highlight in message box and in message display
 - fix lagging with syntax highlighting and add it to the textarea as well. or maybe replace textarea with div-contenteditable
+- replace all alerts on frontend with modals
+# PRIORITY:
+- create friends tab in groups side nav (where friends can be added from)
+- create members list for each group, displaying name and allowing for context menu
 - paste image in message area
 - fix logout issue with brave browser? and other browsers that block tracking and ip grabbing
-- replace all alerts on frontend with modals
 - manage (SOCKET EVENTS)
     - message edits
     - message deletes 

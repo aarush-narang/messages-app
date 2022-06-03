@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { csrf } from "../../lib/middleware";
 import { FormPagesHeader, HomeHeader } from "../components/header";
-import { GroupsComponent, ChatComponent, PageLoading } from "../components/chatComponents";
+import { GroupsComponent, ChatComponent, PageLoading, ContextMenu } from "../components/chatComponents";
 import styles from "../../styles/Home.module.css";
 import * as cookie from 'cookie'
 import { useRouter } from 'next/router'
@@ -42,6 +42,10 @@ export default function Groups({ data, csrfToken }) {
         const [user, setUser] = useState(null)
         const [socket, setSocket] = useState(null); // initialize socket connection to server
 
+        // Context Menu States
+        const [contextMenu, setContextMenu] = useState(null)
+        const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
+        const [contextMenuData, setContextMenuData] = useState(null)
         // socket connection
         const [loading, setLoading] = useState(true)
         useEffect(() => {
@@ -75,7 +79,7 @@ export default function Groups({ data, csrfToken }) {
             }, 2000)
         }, [])
 
-        if(loading) {
+        if (loading) {
             return (
                 <PageLoading />
             )
@@ -90,8 +94,31 @@ export default function Groups({ data, csrfToken }) {
         }
 
 
+
         return (
-            <div style={{ overflowY: 'hidden' }}>
+            <div style={{ overflowY: 'hidden' }}
+                onContextMenu={(e) => {
+                    e.preventDefault()
+                    const path = e.nativeEvent.composedPath()
+                    const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+                    const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+                    if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
+
+                    const clientX = e.clientX
+                    const clientY = e.clientY
+
+                    setContextMenu(contextType)
+                    setContextMenuPos({ x: clientX, y: clientY })
+                    setContextMenuData(mainTarget)
+                }}
+                onClick={() => { // close context menu if it is open
+                    if (contextMenu) {
+                        setContextMenu(null)
+                        setContextMenuData(null)
+                    }
+                }}
+            >
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
@@ -102,6 +129,7 @@ export default function Groups({ data, csrfToken }) {
                     {/* chat area */}
                     <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} msgsState={msgsState} socket={socket} />
                 </div>
+                <ContextMenu type={contextMenu} x={contextMenuPos.x} y={contextMenuPos.y} data={contextMenuData} currentGroup={currentGroup} user={user} messages={msgsState[0]} />
             </div>
         );
     }

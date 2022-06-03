@@ -66,6 +66,7 @@
     margin: 0 4px;
     height: 24px;
     overflow-y: hidden;
+    overflow-x: hidden;
     max-height: 40vh;
 }
 .contentEditableMessageArea {
@@ -215,7 +216,7 @@
     flex-direction: column;
     padding: 20px 15px;
     width: 100%;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     max-height: 100%;
     margin-top: auto;
@@ -231,6 +232,10 @@
     align-items: center;
 
     padding: 12px 14px 14px 14px;
+    transition: opacity 120ms ease-in-out;
+}
+.message:hover {
+    opacity: 0.85;
 }
 
 .messageHeader {
@@ -245,6 +250,8 @@
 .messageAuthor {
     margin: 0;
     align-self: center;
+    text-decoration: underline;
+    user-select: none;
 }
 
 .messageContainer {
@@ -265,10 +272,6 @@
 .messageBody {
     padding: 5px 0;
     height: 100%;
-}
-
-.messageContentContainer {
-
 }
 
 .messageContentMarkdown {
