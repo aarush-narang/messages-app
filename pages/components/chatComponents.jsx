@@ -1,24 +1,26 @@
 // Styles
+import homeStyles from "../../styles/Home.module.css";
 import chatStyles from "../../styles/ChatStyles/ChatComponentStyles.module.css";
 import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css";
 import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
 import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews/FileViews.module.css";
 import contextMenuStyles from "../../styles/ChatStyles/ContextMenuStyles.module.css";
+import modalStyles from "../../styles/ChatStyles/ModalComponentStyles.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
-import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, getIndicesOf } from "./util";
+import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, formatDuration } from "./util";
 import { Spinner } from "./formComponents";
 // Util Packages
 import jsCookie from "js-cookie";
 import moment from "moment";
 
 const SPINNER_COLOR = '#2e8283'
-const MAX_FILE_SIZE_BYTES = 100 * (1024 * 1024); // 100 MB in bytes (100 is MB)
+const MAX_FILE_SIZE_BYTES = 50 * (1024 * 1024); // 50 MB in bytes
 const MAX_MESSAGE_LEN = 6000
 
 // Main Components For Chat
-export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket }) {
+export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // if current group is not in groups, render spinner
         return (
             <PageLoading />
@@ -44,8 +46,8 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
 
     // Sends updated group order to server
     useDebounce(async () => { // debounce the order of the groups & update the in db
-        // TODO: pop up a modal
         socket.emit('updateGroupOrder-server', { accessToken: jsCookie.get('accessToken'), order })
+        setNotificationState({ state: 'success', data: { message: 'Group order updated' } })
     }, 1000, [order])
 
     useEffect(() => { // update the order of the groups (visually) when the order changes
@@ -113,7 +115,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
                             groups.map(group => {
                                 return (
                                     // group container
-                                    <Group key={group.id} group={group} currentGroup={currentGroup} />
+                                    <Group key={group.id} group={group} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
                                 )
                             }) :
                             <div className={groupStyles.noGroupsContainer}>
@@ -145,18 +147,45 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket 
         </div>
     );
 }
-export function Group({ group, currentGroup }) {
-    return (
-        <div key={group.id} data-contexttype="GROUP" data-groupid={group.id} data-selected={currentGroup && group.id == currentGroup.id} className={groupStyles.group} draggable onClick={() => {
-            if (currentGroup && group.id == currentGroup.id) {
-                history.pushState({ currentGroup: null }, null, `/`)
-                dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
-            } else {
-                history.pushState({ currentGroup: group }, null, `/groups/${group.id}`)
-                dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group } }))
-            }
+export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
+    const [contextMenu, setContextMenu] = ctxMenu
+    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
+    const [contextMenuData, setContextMenuData] = ctxMenuData
 
-        }}>
+    return (
+        <div
+            key={group.id}
+            data-contexttype="GROUP"
+            data-groupid={group.id}
+            data-selected={currentGroup && group.id == currentGroup.id}
+            className={groupStyles.group}
+            draggable
+            onClick={() => {
+                if (currentGroup && group.id == currentGroup.id) {
+                    history.pushState({ currentGroup: null }, null, `/`)
+                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
+                } else {
+                    history.pushState({ currentGroup: group }, null, `/groups/${group.id}`)
+                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group } }))
+                }
+
+            }}
+            onContextMenu={(e) => {
+                e.preventDefault()
+                const path = e.nativeEvent.composedPath()
+                const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+                const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+                if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
+
+                const clientX = e.clientX
+                const clientY = e.clientY
+
+                setContextMenu(contextType)
+                setContextMenuPos({ x: clientX, y: clientY })
+                setContextMenuData({ id: group.id })
+            }}
+        >
             <div className={groupStyles.groupImage}>
                 {
                     group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} /> :
@@ -172,14 +201,20 @@ export function Group({ group, currentGroup }) {
     )
 }
 
-export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState, socket }) {
+export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) {
         return (
             <PageLoading />
         )
     }
     if (!currentGroup) return <NoGroupSelected />
-    const [img, setImg] = useState([]) // images to be uploaded
+    const [attachedFiles, _setAttachedFiles] = useState([]) // images to be uploaded
+    const attachedFilesRef = useRef(attachedFiles)
+    const setAttachedFiles = (files) => {
+        attachedFilesRef.current = files
+        _setAttachedFiles(files)
+    }
+
     const [scrollButton, setScrollButton] = useState(false) // if the chat is scrolled high enough, show the scroll to bottom button
     const [msgsLoading, setMsgsLoading] = useState([]) // groups that have messages loading
     const [maxMessages, setMaxMessages] = useState([]) // groups that have reached their max messages
@@ -206,7 +241,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             socket.emit('currentGroupChange-server', { groupId: currentGroup.id, accessToken: jsCookie.get('accessToken') }, (msgs) => {
                 if (!msgs) return console.log('Error on server (currentGroupChange-server)');
                 // push the messages to the messages array w/ group id
-                setMessages([{ messages: [...msgs], id: currentGroup.id }].concat(messages))
+                setMessages([{ messages: [...msgs], id: currentGroup.id }].concat(messagesRef.current))
                 // remove group from loading array
                 setMsgsLoading(msgsLoading.filter(grp => grp !== currentGroup.id))
             })
@@ -224,7 +259,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                 // new messages are added to the top
                 if (newMsgs && newMsgs.length > 0) {
                     const newAppendedMessages = newMsgs.concat(curGrpMessages.messages)
-                    const newMsgsObj = [{ messages: newAppendedMessages, id: currentGroup.id }].concat(messages.filter(grp => grp.id !== currentGroup.id))
+                    const newMsgsObj = [{ messages: newAppendedMessages, id: currentGroup.id }].concat(messagesRef.current.filter(grp => grp.id !== currentGroup.id))
 
                     // set top element in messages viewport 
                     const msgs = msgsContainer.querySelectorAll(`.${chatStyles.message}`)
@@ -237,7 +272,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     // set the new messages + the old messages
                     setMessages(newMsgsObj)
 
-                    if (topEl.current) topEl.current.scrollIntoView() // FIX: only scroll into view if they have NOT clicked the scroll down button
+                    if (topEl.current) topEl.current.scrollIntoView()
                 }
                 else setMaxMessages([currentGroup.id].concat(maxMessages))
                 setMsgsLoading(msgsLoading.filter(grp => grp !== currentGroup.id))
@@ -272,6 +307,34 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             if ((currentGroup.id == msg.groupId && scrollCond) || msg.message.author.uid == user.uid) {
                 scrollMessagesDiv()
             }
+        })
+        socket.on('messageDelete-client', (data) => {
+            const groupID = data.groupId
+            const messageID = data.messageId
+            setMessages(messagesRef.current.map(grp => {
+                if (grp.id == groupID) {
+                    grp.messages = grp.messages.filter(msg => msg.id != messageID)
+                }
+                return grp
+            }))
+        })
+        socket.on('messageEdit-client', (data) => {
+            const groupID = data.groupId
+            const messageID = data.messageId
+            const newMessage = data.newMessage
+
+            setMessages(messagesRef.current.map(grp => {
+                if (grp.id == groupID) {
+                    grp.messages = grp.messages.map(msg => {
+                        if (msg.id == messageID) {
+                            msg.message.content = newMessage
+                            msg.edited = true
+                        }
+                        return msg
+                    })
+                }
+                return grp
+            }))
         })
     }, [messages.length > 0])
 
@@ -308,10 +371,10 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         </div> : null
                 }
                 {
-                    messages.find(grp => grp.id === currentGroup.id) ?
-                        messages.find(grp => grp.id === currentGroup.id).messages.map(message => {
+                    messagesRef.current.find(grp => grp.id === currentGroup.id) ?
+                        messagesRef.current.find(grp => grp.id === currentGroup.id).messages.map(message => {
                             return (
-                                <Message key={message.id} message={message} user={user} />
+                                <Message key={message.id} message={message} user={user} socket={socket} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} currentGroup={currentGroup} setNotificationState={setNotificationState} />
                             )
                         }) :
                         <div className={chatStyles.msgsLoading}>
@@ -331,67 +394,60 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             {/* message part */}
             {/* images */}
             {
-                img.map(i => {
-                    const { base64, name } = i
-                    if (!base64) return null
-                    const mimeType = base64.split(',')[0].split(';')[0].split(':')[1]
-                    const data = base64.split(',')[1]
-                    const fileSize = data ? formatBytes((data * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0
-                    const type = mimeType.split('/')[1]
-                    switch (type) {
-                        case 'apng':
-                        case 'avif':
-                        case 'jpeg':
-                        case 'png':
-                        case 'svg':
-                        case 'webp':
-                            return <img key={data} className={fileStyles.messageFile} alt={name} src={base64} />
-                        default:
-                            return <DefaultFileView key={data} mimeType={mimeType} name={name} fileSize={fileSize} data={base64} />
-                    }
-                })
+                attachedFiles.length > 0 ?
+                    <div className={fileStyles.attachedFilesContainer}>
+                        {
+                            attachedFiles.map((value, index) => {
+                                const { base64, name } = value
+                                if (!base64) return null
+                                const mimeType = base64.split(',')[0].split(';')[0].split(':')[1]
+                                const data = base64.split(',')[1]
+                                const fileSize = data ? formatBytes((data * (3 / 4)) - (data.endsWith('==') ? 2 : 1)) : 0
+
+                                value.id = index // set id for each file
+
+                                return <AttachedFileView key={`${index}::${base64}`} id={index} mimeType={mimeType} name={name} fileSize={fileSize} data={base64} attachedFiles={attachedFiles} setAttachedFiles={setAttachedFiles} />
+                            })
+                        }
+                    </div>
+                    : null
             }
             {/* message input */}
             <div className={chatStyles.messageInputContainer}>
                 <form className={chatStyles.messageInputForm} encType={"multipart/form-data"} onSubmit={
                     async (e) => {
+                        e.preventDefault()
                         const msgInput = document.querySelector('[data-name="content"]')
                         const msgInputContainer = msgInput.parentElement
                         const msgInputParent = msgInputContainer.parentElement
                         const fileInput = document.querySelector('[data-name="files"]')
-                        e.preventDefault()
                         // get formdata
+                        const formFiles = attachedFilesRef.current.map(i => {
+                            return {
+                                name: i.name,
+                                data: i.blob,
+                                mimeType: i.blob.type
+                            }
+                        })
                         const formDataObj = {
-                            files: fileInput.value,
+                            files: formFiles,
                             content: msgInput.innerText
                         }
+
                         // remove empty values
                         if (formDataObj.files && formDataObj.files.size === 0) formDataObj.files = []
                         // confirm message length
                         if (formDataObj.content.length > MAX_MESSAGE_LEN) {
-                            return alert('Message too long!')
+                            return setNotificationState({ state: 'error', data: { message: 'Your message is too long!' } })
                         } else if (formDataObj.content.trim().length === 0 && formDataObj.files.length === 0) {
-                            fileInput.value = ''
-                            msgInput.innerText = ''
-                            return alert('Message cannot be empty!')
+                            return
                         }
                         formDataObj.content = formDataObj.content.trim()
-                        // set files
-                        const files = [...e.target.querySelector('[data-name="files"]').files]
-                        const fileObjs = []
-                        for (let i = 0; i < files.length; i++) {
-                            fileObjs.push({
-                                name: files[i].name,
-                                data: files[i],
-                                mimeType: files[i].type
-                            })
-                        }
-                        formDataObj.files = fileObjs
 
                         // send message
                         await socket.emit('messageCreate-server', { accessToken: jsCookie.get('accessToken'), groupId: currentGroup.id, message: formDataObj })
                         // reset form and images
-                        setImg([])
+                        setAttachedFiles([])
                         fileInput.value = ''
                         msgInput.innerText = ''
                         msgInput.style.height = null
@@ -401,47 +457,47 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     }
                 }>
                     <div className={chatStyles.messageButtons}>
-                        <input data-name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple onInput={(e) => {
-                            const files = [...img, ...e.target.files]
-                            const totalSizeBytes = (files.reduce((acc, file) => {
-                                return acc + file.size
-                            }, 0))
-                            if (totalSizeBytes > MAX_FILE_SIZE_BYTES) {
-                                // TODO: show error on a modal
-                                alert(`Max File Size is ${formatBytes(MAX_FILE_SIZE_BYTES)}, your file(s) total ${formatBytes(totalSizeBytes)}`)
-                                e.target.value = ''
-                                setImg([])
-                            } else if (img.length + files.length > 5 || files.length > 5) {
-                                alert('Max number of files that can be uploaded is 5, you have ' + (img.length + files.length > 5 ? img.length : files.length) + ' files')
-                                e.target.value = ''
-                                setImg([])
-                            } else {
-                                // TODO: show images above the input and allow to remove them (like discord)
-                                function readFileAsText(file) {
-                                    return new Promise(function (resolve, reject) {
-                                        let fr = new FileReader();
-                                        fr.onloadend = function () {
-                                            resolve(fr.result);
-                                        };
-                                        fr.onerror = function () {
-                                            reject(fr);
-                                        };
-                                        fr.readAsDataURL(file);
-                                    });
-                                }
-                                const readers = []
-                                for (let i = 0; i < files.length; i++) {
-                                    readers.push(readFileAsText(files[i]))
-                                }
-                                Promise.allSettled(readers).then(async (results) => {
-                                    for (let i = 0; i < results.length; i++) {
-                                        if (results[i].status === 'fulfilled') {
-                                            setImg(img.concat([{ base64: results[i].value, name: files[i].name }]))
-                                        }
+                        <input data-name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple
+                            onInput={(e) => {
+                                const files = [...attachedFiles, ...e.target.files]
+                                const totalSizeBytes = (files.reduce((acc, file) => {
+                                    return acc + file.size
+                                }, 0))
+                                if (totalSizeBytes > MAX_FILE_SIZE_BYTES) {
+                                    setNotificationState({ state: 'error', data: { message: `Max File Size is ${formatBytes(MAX_FILE_SIZE_BYTES)}, your file(s) total ${formatBytes(totalSizeBytes)}` } })
+                                    e.target.value = ''
+                                    setAttachedFiles([])
+                                } else if (files.length > 5) {
+                                    setNotificationState({ state: 'error', data: { message: `Max File Count is 5, your file(s) total ${files.length}` } })
+                                } else {
+                                    function readFileAsText(file) {
+                                        return new Promise(function (resolve, reject) {
+                                            let fr = new FileReader();
+                                            fr.onloadend = function () {
+                                                resolve(fr.result);
+                                            };
+                                            fr.onerror = function () {
+                                                reject(fr);
+                                            };
+                                            fr.readAsDataURL(file);
+                                        });
                                     }
-                                })
-                            }
-                        }} />
+                                    const readers = []
+                                    const unreadFiles = [...e.target.files]
+                                    for (let i = 0; i < files.length; i++) {
+                                        readers.push(readFileAsText(unreadFiles[i]))
+                                    }
+
+                                    Promise.allSettled(readers).then(async (results) => {
+                                        for (let i = 0; i < results.length; i++) {
+                                            if (results[i].status === 'fulfilled') {
+                                                setAttachedFiles([...attachedFilesRef.current, { base64: results[i].value, name: unreadFiles[i].name, mimeType: unreadFiles[i].type, blob: unreadFiles[i] }])
+                                                e.target.value = '' // reset file input as all files are in the attachedFiles state
+                                            }
+                                        }
+                                    })
+                                }
+                            }} />
                         <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
                             file_upload
                         </label>
@@ -502,9 +558,59 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         </div>
     )
 }
-export function Message({ message, user }) {
+export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
+    const [contextMenu, setContextMenu] = ctxMenu
+    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
+    const [contextMenuData, setContextMenuData] = ctxMenuData
+
+    const messageEditDivRef = useRef(null)
+
+    const [messageEdit, setMessageEdit] = useState(false) // if message is being edited currently
+
+    useEffect(() => {
+        if (messageEdit) {
+            messageEditDivRef.current.focus()
+        }
+    }, [messageEdit])
+
+    function handleContextMenuFile(e, filedata, filename, filesize, mimeType) {
+        e.preventDefault()
+        const path = e.nativeEvent.composedPath()
+        const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+        const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+        if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
+
+        const clientX = e.clientX
+        const clientY = e.clientY
+
+        setContextMenu(contextType)
+        setContextMenuPos({ x: clientX, y: clientY })
+        setContextMenuData({ filedata, filename, filesize, mimeType })
+    }
+    function handleContextMenuMessage(e, message, x, y) {
+        e.preventDefault()
+        const path = e.nativeEvent.composedPath()
+        const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+        const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+        // if context menu is right-clicked, do nothing. If file is right-clicked, let listener on the files container handle it
+        if (contextType == 'MENU' || contextType == 'FILE') return
+
+
+        setContextMenu(contextType)
+        setContextMenuPos({ x, y })
+        setContextMenuData({ id: message.id, target: mainTarget, setMessageEdit })
+    }
+
     return (
-        <div id={message.id} data-contexttype="MESSAGE" className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}>
+        <div id={message.id} data-contexttype="MESSAGE" className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}
+            onContextMenu={(e) => {
+                const clientX = e.clientX
+                const clientY = e.clientY
+                handleContextMenuMessage(e, message, clientX, clientY)
+            }}
+        >
             <img data-contexttype="USER" className={chatStyles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
 
             <div className={chatStyles.messageContainer}>
@@ -515,12 +621,57 @@ export function Message({ message, user }) {
                             <span className={chatStyles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
                             <span className={chatStyles.messageEdited} title={"This message was edited."}>{message.edited ? '(edited)' : ''}</span>
                         </div>
-                        <span className={chatStyles.messageOptions}>more_horiz</span>
+                        <span className={chatStyles.messageOptions} data-contexttype="MESSAGE"
+                            onClick={(e) => {
+                                const rect = e.target.getBoundingClientRect()
+                                const clientX = rect.x - 8
+                                const clientY = rect.y + rect.height / 2
+                                handleContextMenuMessage(e, message, clientX, clientY)
+                            }}
+                        >more_horiz</span>
                     </div>
                 </div>
                 <div className={chatStyles.messageBody} >
-                    <div className={chatStyles.messageContentContainer}>
-                        <div className={chatStyles.messageContentMarkdown} data-message-content>{message.message.content}</div>
+                    <div className={chatStyles.messageContentContainer} >
+                        {
+                            !messageEdit ? (
+                                <div className={chatStyles.messageContentMarkdown} data-message-content>{message.message.content}</div>
+                            ) :
+                                <div>
+                                    <div className={chatStyles.messageContentEditable} contentEditable data-message-content ref={messageEditDivRef}>
+                                        {message.message.content}
+                                    </div>
+                                    <div className={chatStyles.messageContentEditableInfo}>
+                                        <div>
+                                            <kbd onClick={() => {
+                                                setMessageEdit(false)
+                                            }}>
+                                                esc
+                                            </kbd>
+                                            &nbsp;
+                                            to cancel
+                                            &nbsp;
+                                        </div>
+                                        &#8226;
+                                        <div>
+                                            &nbsp;
+                                            <kbd onClick={() => {
+                                                const newText = messageEditDivRef.current.innerText
+                                                setMessageEdit(false)
+                                                if (message.message.content == newText) return
+                                                socket.emit('messageEdit-server', { groupId: currentGroup.id, messageId: message.id, newMessage: newText, accessToken: jsCookie.get('accessToken') }, (res) => {
+                                                    if (!res) console.log('error, unable to edit message')
+                                                    setNotificationState({ state: 'warning', data: { message: 'Message Edited' } })
+                                                })
+                                            }}>
+                                                enter
+                                            </kbd>
+                                            &nbsp;
+                                            to save
+                                        </div>
+                                    </div>
+                                </div>
+                        }
                     </div>
                     <div className={fileStyles.messageFiles}>
                         {
@@ -540,20 +691,59 @@ export function Message({ message, user }) {
                                     case generalType === 'image' && specificType === 'png':
                                     case generalType === 'image' && specificType === 'svg':
                                     case generalType === 'image' && specificType === 'webp':
-                                        return <ImageFileView key={`${i} ${data}`} alt={name} data={data} name={name} mimeType={mimeType} fileSize={fileSize} />
+                                    case generalType === 'image' && specificType === 'gif':
+                                        // find aspect ratio of image here and add it to the contextmenu listener below
+                                        return <ImageFileView
+                                            key={`${i} ${data}`}
+                                            alt={name}
+                                            data={data}
+                                            name={name}
+                                            mimeType={mimeType}
+                                            fileSize={fileSize}
+                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                        />
                                     case generalType === 'audio' && specificType === 'ogg':
                                     case generalType === 'audio' && specificType === 'mp3':
                                     case generalType === 'audio' && specificType === 'wav':
                                     case generalType === 'audio' && specificType === 'mpeg':
-                                        return <AudioFileView key={`${i} ${data}`} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                                        return <AudioFileView
+                                            key={`${i} ${data}`}
+                                            mimeType={mimeType}
+                                            name={name}
+                                            fileSize={fileSize}
+                                            data={`data:${mimeType};base64,${data}`}
+                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                        />
                                     case generalType === 'video' && specificType === 'ogg':
                                     case generalType === 'video' && specificType === 'mp4':
                                     case generalType === 'video' && specificType === 'webm':
-                                        return <VideoFileView key={`${i} ${data}`} name={name} mimeType={mimeType} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                                        // find aspect ratio of video here and add it to the contextmenu listener below
+                                        return <VideoFileView
+                                            key={`${i} ${data}`}
+                                            name={name}
+                                            mimeType={mimeType}
+                                            fileSize={fileSize}
+                                            data={`data:${mimeType};base64,${data}`}
+                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                        />
                                     case generalType === 'text':
-                                        return <TextFileView key={`${i} ${data}`} data={data} fileSize={fileSize} mimeType={mimeType} name={name} />
+                                        return <TextFileView
+                                            key={`${i} ${data}`}
+                                            data={data}
+                                            fileSize={fileSize}
+                                            mimeType={mimeType}
+                                            name={name}
+                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                        />
                                     default:
-                                        return <DefaultFileView key={`${i} ${data}`} mimeType={mimeType} name={name} fileSize={fileSize} data={`data:${mimeType};base64,${data}`} />
+                                        return <DefaultFileView
+                                            key={`${i} ${data}`}
+                                            mimeType={mimeType}
+                                            name={name}
+                                            fileSize={fileSize}
+                                            data={`data:${mimeType};base64,${data}`}
+                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                        />
                                 }
                             })
                         }
@@ -565,10 +755,11 @@ export function Message({ message, user }) {
 }
 
 // Message File Views
-export function TextFileView({ name, mimeType, data, fileSize }) {
+export function TextFileView({ name, mimeType, data, fileSize, onContextMenu }) {
     const [textFileState, setTextFileState] = useState(false)
+
     return (
-        <pre data-contexttype="FILE" key={data} wrap={"true"} className={fileStyles.messageFile}>
+        <pre data-contexttype="FILE" key={data} wrap={"true"} className={fileStyles.messageFile} onContextMenu={onContextMenu}>
             <div className={fileStyles.preHeader}>
                 <div className={fileStyles.preTitle}>
                     <div style={{ fontSize: '15px' }}>{shortenFileName(name, 10)}</div>
@@ -590,12 +781,12 @@ export function TextFileView({ name, mimeType, data, fileSize }) {
         </pre>
     )
 }
-export function VideoFileView({ data, name, mimeType, fileSize }) {
+export function VideoFileView({ data, name, mimeType, fileSize, onContextMenu }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
     const [fullscreen, _setFullscreen] = useState(false) // true = fullscreen, false = not fullscreen
     const [volume, _setVolume] = useState(1) // 0 to 1
-    const [muted, _setMuted] = useState(false)
+    const [muted, _setMuted] = useState(true)
     const [playbackSpeed, _setPlaybackSpeed] = useState('1')
     const [currentTime, _setCurrentTime] = useState(0) // in seconds
     const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
@@ -645,16 +836,6 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         durationRef.current = value
         _setDuration(value)
     }
-    const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
-        minimumIntegerDigits: 2,
-    })
-    const formatDuration = (duration) => {
-        const seconds = Math.floor(duration % 60)
-        const minutes = Math.floor(duration / 60) % 60
-        const hours = Math.floor(duration / 3600)
-
-        return (hours > 0 ? `${hours}:` : '') + (minutes > 0 ? `${leadingZeroFormatter.format(minutes)}:` : '0:') + `${leadingZeroFormatter.format(seconds)}`
-    }
 
     const videoRef = useRef(null)
     const videoContainerRef = useRef(null)
@@ -664,15 +845,17 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         playing ? await videoRef.current.play() : await videoRef.current.pause()
     }, [playing])
     useEffect(() => {
-        if (document.fullscreenElement == null && fullscreen) {
+        if (document.fullscreenElement == null && fullscreenRef.current) {
             videoContainerRef.current.requestFullscreen()
         } else if (document.fullscreenElement) {
             document.exitFullscreen()
+            setFullscreen(false)
         }
 
         return () => {
             if (document.fullscreenElement) {
                 document.exitFullscreen()
+                setFullscreen(false)
             }
         }
     }, [fullscreen])
@@ -690,25 +873,20 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
     }, [playbackSpeed])
 
     useEffect(() => {
-        function handleFullScreenChange() {
-            setFullscreen(document.fullscreenElement != null)
-        }
         function handleClickEvent(e) {
             if (!e.composedPath().includes(pbSpeedElementRef.current)) {
                 setPbSpeedMenuState(false)
             }
         }
 
-        document.addEventListener('fullscreenchange', handleFullScreenChange)
         document.addEventListener('click', handleClickEvent)
 
         return () => { // cleanup event listeners
-            document.removeEventListener('fullscreenchange', handleFullScreenChange)
             document.removeEventListener('click', handleClickEvent)
         }
     }, [])
     return (
-        <div data-contexttype="FILE" className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef}>
+        <div data-contexttype="FILE" className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef} onContextMenu={onContextMenu}>
             <div className={videoStyles.videoInformationContainer}>
                 <div className={videoStyles.videoInformation}>
                     <div className={videoStyles.videoHeader}>
@@ -796,11 +974,11 @@ export function VideoFileView({ data, name, mimeType, fileSize }) {
         </div>
     )
 }
-export function AudioFileView({ data, name, mimeType, fileSize }) {
+export function AudioFileView({ data, name, mimeType, fileSize, onContextMenu }) {
     const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
     const [playing, _setPlaying] = useState(false) // true = playing, false = paused
     const [volume, _setVolume] = useState(1) // 0 - 1
-    const [muted, _setMuted] = useState(false)
+    const [muted, _setMuted] = useState(true)
     const [playbackSpeed, _setPlaybackSpeed] = useState('1')
     const [currentTime, _setCurrentTime] = useState(0) // in seconds
     const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
@@ -844,16 +1022,6 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
         durationRef.current = value
         _setDuration(value)
     }
-    const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
-        minimumIntegerDigits: 2,
-    })
-    const formatDuration = (duration) => {
-        const seconds = Math.floor(duration % 60)
-        const minutes = Math.floor(duration / 60) % 60
-        const hours = Math.floor(duration / 3600)
-
-        return (hours > 0 ? `${hours}:` : '') + (minutes > 0 ? `${leadingZeroFormatter.format(minutes)}:` : '0:') + `${leadingZeroFormatter.format(seconds)}`
-    }
 
     const audioRef = useRef(null)
     const audioContainerRef = useRef(null)
@@ -889,7 +1057,7 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
 
     // controls: play/pause, duration and current time, timeline, volume/mute, playback speed, download
     return (
-        <div data-contexttype="FILE" className={audioStyles.audioContainer} data-playing={playing} ref={audioContainerRef}>
+        <div data-contexttype="FILE" className={audioStyles.audioContainer} data-playing={playing} ref={audioContainerRef} onContextMenu={onContextMenu}>
             <div className={audioStyles.audioControls}>
                 <button className={audioStyles.playPauseBtn} onClick={() => setPlaying(!playing)}>
                     {
@@ -956,13 +1124,45 @@ export function AudioFileView({ data, name, mimeType, fileSize }) {
         </div>
     )
 }
-export function ImageFileView({ data, name, mimeType, fileSize }) {
-    return <img data-contexttype="FILE" className={fileStyles.messageFile} alt={name} src={`data:${mimeType};base64,${data}`} title={name} />
+export function ImageFileView({ data, name, mimeType, fileSize, onContextMenu }) {
+    const MAX_DIMENSION = 300
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+
+    useEffect(() => {
+        const img = new Image()
+        img.src = `data:${mimeType};base64,${data}`
+        img.onload = () => {
+            if (img.width > MAX_DIMENSION) {
+                setDimensions({
+                    width: MAX_DIMENSION,
+                    height: Math.floor(img.height * (MAX_DIMENSION / img.width))
+                })
+            } else if (img.height > MAX_DIMENSION) {
+                setDimensions({
+                    width: Math.floor(img.width * (MAX_DIMENSION / img.height)),
+                    height: MAX_DIMENSION
+                })
+            } else {
+                setDimensions({ width: img.width, height: img.height })
+            }
+        }
+    }, [])
+
+    return <img
+        data-contexttype="FILE"
+        className={fileStyles.messageFile}
+        alt={name}
+        src={`data:${mimeType};base64,${data}`}
+        title={name}
+        onContextMenu={onContextMenu}
+        width={dimensions.width}
+        height={dimensions.height}
+    />
 }
-export function DefaultFileView({ data, name, mimeType, fileSize }) {
+export function DefaultFileView({ data, name, mimeType, fileSize, onContextMenu }) {
     return (
-        <div data-contexttype="FILE" className={fileStyles.messageFile}>
-            <div className={fileStyles.fileViewContainer}>
+        <div className={fileStyles.messageFile} onContextMenu={onContextMenu}>
+            <div data-contexttype="FILE" className={fileStyles.fileViewContainer}>
                 <div className={fileStyles.fileImage}>draft</div>
                 <div className={fileStyles.fileInfo}>
                     <a className={fileStyles.fileName} title={name} href={data} download={name} onClick={(e) => {
@@ -979,9 +1179,97 @@ export function DefaultFileView({ data, name, mimeType, fileSize }) {
 
     )
 }
+export function AttachedFileView({ id, data, name, mimeType, fileSize, onContextMenu, attachedFiles, setAttachedFiles }) {
+    const generalType = mimeType.split('/')[0]
+    const specificType = mimeType.split('/')[1]
+
+    const shortenedName = shortenFileName(name, 30)
+
+    const [editState, setEditState] = useState(false)
+
+    return (
+        <div data-contexttype="FILE" className={fileStyles.attachedFileViewContainer} onContextMenu={onContextMenu}>
+            <div className={fileStyles.attachmentButtons}>
+                <div className={`${fileStyles.editAttachmentButton} ${fileStyles.attachmentButton}`}
+                    onClick={(e) => {
+                        setEditState(!editState)
+                    }}
+                >edit</div>
+                <div className={`${fileStyles.removeAttachmentButton} ${fileStyles.attachmentButton}`}
+                    onClick={() => {
+                        setAttachedFiles(attachedFiles.filter(file => file.name != name))
+                    }}
+                >delete</div>
+            </div>
+            <div className={fileStyles.attachedFile}>
+                {
+                    generalType == 'image' ?
+                        <img
+                            className={fileStyles.attachedImage}
+                            alt={name}
+                            src={data}
+                            title={name}
+                        /> :
+                        <div className={fileStyles.fileIcon}>
+                            {
+                                generalType == 'audio' ?
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m34.76 42.16c-.74-.3-1.6-.14-2.18.44l-8.58 9.4h-6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h6l8.58 9.42c.58.58 1.44.74 2.18.44.76-.32 1.24-1.06 1.24-1.86v-32c0-.8-.48-1.54-1.24-1.84zm5.24 3.84v4c5.52 0 10 4.48 10 10s-4.48 10-10 10v4c7.72 0 14-6.28 14-14s-6.28-14-14-14zm0 8c3.3 0 6 2.7 6 6s-2.7 6-6 6v-4c1.1 0 2-.9 2-2s-.9-2-2-2z" fill="#5865f2" fillRule="evenodd" /></svg>
+                                    :
+                                    generalType == 'video' ?
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><g fill="#5865f2"><path clipRule="evenodd" d="m16 0h-8v8h8zm0 16h-8v8h8zm-8 16h8v8h-8zm56 0h-8v8h8zm-56 16h8v8h-8zm56 0h-8v8h8zm-56 16h8v8h-8zm56 0h-8v8h8zm-56 16h8v8h-8zm56 0h-8v8h8z" fillRule="evenodd" /><path d="m30 50.98v18l15-9z" /></g></svg>
+                                        :
+                                        specificType == 'pdf' ?
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path d="m56.1014 65.0909c-3.1394-3.2-11.7-1.8909-13.7625-1.6545-2.2633-2.2182-4.1981-4.7273-5.7861-7.4546 1.1317-3.1636 1.7705-6.4727 1.9348-9.8182 0-2.9636-1.2047-6.1636-4.5815-6.1636-1.1864.0364-2.2815.6545-2.9021 1.6545-1.442 2.491-.8397 7.4546 1.4419 12.5455-1.5697 4.6545-3.5592 9.1636-5.9138 13.4909-3.5046 1.4182-10.8604 4.7273-11.4627 8.2909-.2373 1.0909.146 2.2.9674 2.9637.8578.6909 1.9165 1.0545 3.0299 1.0545 4.4719 0 8.8161-6.0364 11.8278-11.1273 3.4315-1.1454 6.936-2.0545 10.4952-2.7272 4.7092 4.0181 8.8161 4.6181 10.9882 4.6181 2.9021 0 3.9791-1.1818 4.3441-2.2545.5293-1.1455.2921-2.5091-.6206-3.4182zm-3.0117 2.0182c-.1277.8364-1.2047 1.6545-3.1394 1.1818-2.2451-.5818-4.3442-1.6364-6.1512-3.0727 1.5697-.2364 5.0743-.6 7.5931-.1273.9674.2364 1.9348.8182 1.6975 2.0182zm-20.1509-24.3818c.2007-.3455.5658-.5637.9673-.6 1.077 0 1.3325 1.3091 1.3325 2.3636-.1278 2.5091-.6023 4.9636-1.442 7.3455-1.8252-4.7273-1.4602-8.0546-.8578-9.1091zm-.2373 22.9454c1.0404-2.1636 1.9713-4.3636 2.7744-6.6182 1.1134 1.7455 2.4093 3.3637 3.8695 4.8546-.0182.1091-3.76.8182-6.6439 1.7636zm-7.1186 4.7455c-2.7744 4.4909-5.6766 7.3454-7.2463 7.3454-.2555-.0181-.5111-.1091-.7301-.2363-.3651-.2364-.5111-.6728-.3651-1.0728.3651-1.6545 3.5046-3.909 8.3415-6.0363z" fill="#5865f2" /></svg>
+                                            :
+                                            specificType == 'css' || specificType == 'html' || specificType == 'xml' ?
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m25.56 80h4.32l16.56-40h-4.32zm1.1-12-8-8 8-8h-5.66l-8 8 8 8zm26.68-8-8 8h5.66l8-8-8-8h-5.66z" fill="#5865f2" fillRule="evenodd" /></svg>
+                                                :
+                                                specificType == 'js' || specificType == 'json' || specificType == 'ts' || specificType == 'tsx' || specificType == 'jsx' || specificType == 'x-python' ?
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m23.7 40.46c.66-.28 1.32-.38 1.98-.42.62-.04 1.38-.04 2.26-.04h.06v4c-.96 0-1.58 0-2.04.02-.46.04-.64.08-.72.12-.48.2-.88.6-1.08 1.08-.04.1-.08.26-.12.72-.04.48-.04 1.1-.04 2.06v6.06c0 .88 0 1.64-.04 2.26-.06.66-.14 1.32-.42 1.98-.26.64-.64 1.2-1.1 1.7.46.5.84 1.06 1.1 1.7.28.66.38 1.32.42 1.98.04.62.04 1.38.04 2.26v6.06c0 .96 0 1.58.02 2.04.04.46.08.64.12.72.2.48.6.88 1.08 1.08.1.04.26.08.72.12.48.04 1.1.04 2.06.04v4h-.06c-.88 0-1.64 0-2.26-.04-.66-.06-1.32-.14-1.98-.42-1.46-.6-2.64-1.76-3.24-3.24-.28-.66-.38-1.32-.42-1.98-.04-.62-.04-1.38-.04-2.26v-6.06c0-.96 0-1.58-.02-2.04-.04-.46-.08-.64-.12-.72-.2-.48-.6-.88-1.08-1.08-.1-.04-.26-.08-.72-.12-.48-.04-1.1-.04-2.06-.04v-4c.96 0 1.58 0 2.04-.02.46-.04.64-.08.72-.12.48-.2.88-.58 1.08-1.08.04-.1.08-.26.12-.72.04-.48.04-1.1.04-2.06v-6.06c0-.88 0-1.64.04-2.26.06-.66.14-1.32.42-1.98.6-1.46 1.76-2.64 3.24-3.24zm29.52 17.38c.1.04.26.08.72.12.48.04 1.1.04 2.06.04v4c-.96 0-1.58 0-2.04.02-.46.04-.64.08-.72.12-.48.2-.88.6-1.08 1.08-.04.1-.08.26-.12.72-.04.48-.04 1.1-.04 2.06v6.06c0 .88 0 1.64-.04 2.26-.06.66-.14 1.32-.42 1.98-.6 1.46-1.78 2.64-3.24 3.24-.66.28-1.32.38-1.98.42-.62.04-1.38.04-2.26.04h-.06v-4c.96 0 1.58 0 2.04-.02.46-.04.64-.08.72-.12.48-.2.88-.58 1.08-1.08.04-.1.08-.26.12-.72.04-.48.04-1.1.04-2.06v-6.06c0-.88 0-1.64.04-2.26.06-.66.16-1.32.42-1.98.26-.64.64-1.2 1.1-1.7-.46-.5-.84-1.06-1.1-1.7-.28-.66-.38-1.32-.42-1.98-.04-.62-.04-1.38-.04-2.26v-6.06c0-.96 0-1.58-.02-2.04-.04-.46-.08-.64-.12-.72-.2-.48-.6-.88-1.08-1.08-.1-.04-.26-.08-.72-.12-.48-.04-1.1-.04-2.06-.04v-4h.06c.88 0 1.64 0 2.26.04.66.06 1.32.14 1.98.42 1.46.6 2.64 1.76 3.24 3.24.28.66.38 1.32.42 1.98.04.62.04 1.38.04 2.26v6.06c0 .96 0 1.58.02 2.04.04.46.08.64.12.72.2.48.6.88 1.08 1.08z" fill="#5865f2" fillRule="evenodd" /></svg>
+                                                    :
+                                                    generalType == 'text' ?
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m56 40h-16v4h16zm0 12h-16v4h16zm-40 12h40v4h-40zm40 12h-40v4h40zm-30-20h-4v-12h-6v-4h16v4h-6z" fill="#5865f2" fillRule="evenodd" /></svg>
+                                                        :
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /></svg>
+                            }
+                        </div>
+                }
+            </div>
+            {
+                editState ?
+                    <form action="" className={fileStyles.editAttachmentFormContainer}
+                        onSubmit={(e) => {
+                            e.preventDefault()
+                            const formData = new FormData(e.target)
+                            let newName = formData.get('new_attachment_name')
+
+                            if (newName.split('.').pop() !== specificType) {
+                                newName = newName + '.' + specificType
+                            } else if (newName === '' || newName === name) {
+                                return setEditState(false)
+                            }
+                            setAttachedFiles(attachedFiles.map(file => {
+                                if (file.id === id) {
+                                    file.name = newName
+                                }
+                                return file
+                            }))
+                            return setEditState(false)
+                        }}>
+                        <input type="text" name="new_attachment_name" className={fileStyles.editAttachmentInput} defaultValue={name} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+                        <button type="submit" className={fileStyles.editAttachmentSubmit}>check_circle</button>
+                    </form>
+                    :
+                    <div className={fileStyles.attachedFileName}>
+                        {shortenedName}
+                    </div>
+            }
+        </div>
+    )
+}
 
 // Custom Context Menu
-export function ContextMenu({ x, y, type, data, currentGroup, user, messages }) {
+export function ContextMenu({ x, y, type, data, currentGroup, user, msgsState, socket, setNotificationState }) {
     if (type == null) return <></>
     // messages, groups, users, files
     // Menu Position
@@ -1004,34 +1292,31 @@ export function ContextMenu({ x, y, type, data, currentGroup, user, messages }) 
 
                 return (
                     <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <MessageContextMenu messageData={data} group={currentGroup} user={user} messages={messages} />
+                        <MessageContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} socket={socket} setNotificationState={setNotificationState} />
                     </div>
                 )
             }
         case "USER":
             {
-                console.log('user context menu')
                 return (
                     <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <UserContextMenu />
+                        <UserContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
                     </div>
                 )
             }
         case "GROUP":
             {
-                console.log('group context menu')
                 return (
                     <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-
+                        <GroupContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
                     </div>
                 )
             }
         case "FILE":
             {
-                console.log('file context menu')
                 return (
                     <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-
+                        <FileContextMenu data={data} group={currentGroup} user={user} setNotificationState={setNotificationState} />
                     </div>
                 )
             }
@@ -1040,9 +1325,11 @@ export function ContextMenu({ x, y, type, data, currentGroup, user, messages }) 
             return <></>
     }
 }
-export function MessageContextMenu({ group, user, messages, messageData }) {
+export function MessageContextMenu({ group, user, data, socket, msgsState, setNotificationState }) {
+    const [messages, setMessages] = msgsState
+    const setMessageEdit = data.setMessageEdit
     const groupID = group.id
-    const messageID = messageData.id
+    const messageID = data.id
     // Current Message
     const groupMessages = messages.find(grp => grp.id == groupID).messages
     const message = groupMessages.find(msg => msg.id == messageID)
@@ -1055,11 +1342,12 @@ export function MessageContextMenu({ group, user, messages, messageData }) {
 
     const author = user.uid == message.author.uid
 
-    return (// message id, copy message content, edit message if author, delete message if author
+    return (
         <ul className={contextMenuStyles.contextMenuContainer}>
             <li className={contextMenuStyles.contextMenuItem}
                 onClick={async () => {
                     await navigator.clipboard.writeText(messageContent)
+                    setNotificationState({ state: 'success', data: { message: 'Copied to Clipboard' } })
                 }}
             >
                 <div className={contextMenuStyles.contextMenuItemText}>Copy Content</div>
@@ -1068,20 +1356,54 @@ export function MessageContextMenu({ group, user, messages, messageData }) {
             <li className={contextMenuStyles.contextMenuItem}
                 onClick={async () => {
                     await navigator.clipboard.writeText(messageLink)
+                    setNotificationState({ state: 'success', data: { message: 'Copied to Clipboard' } })
                 }}
             >
                 <div className={contextMenuStyles.contextMenuItemText}>Copy Message Link</div>
                 <div className={contextMenuStyles.contextMenuItemIcon}>link</div>
             </li>
-            { // TODO: implement message editing and deletion
+            {
                 author ?
                     (
                         <>
-                            <li className={contextMenuStyles.contextMenuItem}>
-                                <div className={contextMenuStyles.contextMenuItemText}>Edit Message</div>
-                                <div className={contextMenuStyles.contextMenuItemIcon}>edit</div>
+                            <li className={`${contextMenuStyles.contextMenuItem} ${contextMenuStyles.contextMenuItemWarn}`}
+                                onClick={async (e) => {
+                                    const target = data.target
+                                    setMessageEdit(true)
+
+                                    function handleKeyDown(e) {
+                                        if (e.key == 'Escape') {
+                                            setMessageEdit(false)
+                                        }
+                                        else if (e.key == 'Enter' && !e.shiftKey) {
+                                            setMessageEdit(false)
+                                            const newText = e.target.innerText
+                                            if (newText == messageContent) return setNotificationState({ state: 'warning', data: { message: 'Message was not changed' } })
+                                            socket.emit('messageEdit-server', { groupId: group.id, messageId: message.id, newMessage: newText, accessToken: jsCookie.get('accessToken') }, (res) => {
+                                                if (!res) console.log('error, unable to edit message')
+                                                setNotificationState({ state: 'warning', data: { message: 'Message Edited' } })
+                                            })
+                                        }
+
+                                        target.removeEventListener('keydown', handleKeyDown)
+                                    }
+
+                                    target.addEventListener('keydown', (e) => {
+                                        handleKeyDown(e)
+                                    })
+                                }}
+                            >
+                                <div className={`${contextMenuStyles.contextMenuItemText} ${contextMenuStyles.contextMenuItemTextWarn}`}>Edit Message</div>
+                                <div className={`${contextMenuStyles.contextMenuItemIcon} ${contextMenuStyles.contextMenuItemTextWarn}`}>edit</div>
                             </li>
-                            <li className={`${contextMenuStyles.contextMenuItem} ${contextMenuStyles.contextMenuItemErr}`}>
+                            <li className={`${contextMenuStyles.contextMenuItem} ${contextMenuStyles.contextMenuItemErr}`}
+                                onClick={async () => {
+                                    socket.emit('messageDelete-server', { groupId: groupID, messageId: messageID, accessToken: jsCookie.get('accessToken') }, (status) => {
+                                        if (!status) console.log('error, unable to delete message')
+                                        setNotificationState({ state: 'error', data: { message: 'Message Deleted' } })
+                                    })
+                                }}
+                            >
                                 <div className={`${contextMenuStyles.contextMenuItemText} ${contextMenuStyles.contextMenuItemTextErr}`}>Delete Message</div>
                                 <div className={`${contextMenuStyles.contextMenuItemIcon} ${contextMenuStyles.contextMenuItemTextErr}`}>delete</div>
                             </li>
@@ -1093,6 +1415,7 @@ export function MessageContextMenu({ group, user, messages, messageData }) {
             <li className={contextMenuStyles.contextMenuItem}
                 onClick={async () => {
                     await navigator.clipboard.writeText(messageID)
+                    setNotificationState({ state: 'success', data: { message: 'Copied to Clipboard' } })
                 }}
             >
                 <div className={contextMenuStyles.contextMenuItemText}>Copy ID</div>
@@ -1101,7 +1424,89 @@ export function MessageContextMenu({ group, user, messages, messageData }) {
         </ul>
     )
 }
-export function UserContextMenu({ }) {
+export function FileContextMenu({ group, user, data, setNotificationState }) {
+    const fileData = data.filedata
+    const fileName = data.filename
+    const fileSize = data.filesize
+    const fileMimeType = data.mimeType
+    const generalType = fileMimeType.split('/')[0]
+
+    return (
+        <ul className={contextMenuStyles.contextMenuContainer}>
+            <li className={contextMenuStyles.contextMenuFileInfo}>
+                <div title={fileName}>{fileName}</div>
+                <div className={contextMenuStyles.contextMenuItemText}>
+                    <div title={fileSize}>{fileSize}</div>
+                    <div title={fileMimeType}>{fileMimeType}</div>
+                </div>
+                <div className={contextMenuStyles.contextMenuItemText}>
+                    <div title={fileSize}>{fileSize}</div>
+                </div>
+            </li>
+            <li className={contextMenuStyles.contextMenuItem}
+                onClick={() => {
+                    downloadBase64File(fileData, fileName)
+                    setNotificationState({ state: 'success', data: { message: 'Downloaded File' } })
+                }}
+            >
+                <div className={contextMenuStyles.contextMenuItemText}>Download {
+                    generalType == 'image' ? 'Image' : generalType == 'video' ? 'Video' : generalType == 'audio' ? 'Audio' : 'File'
+                }</div>
+                <div className={contextMenuStyles.contextMenuItemIcon} >file_download</div>
+            </li>
+            <li className={contextMenuStyles.contextMenuItem}
+                onClick={() => {
+                    const w = window.open('about:blank');
+
+                    setTimeout(function () { //FireFox seems to require a setTimeout for this to work.
+                        const body = w.document.body;
+                        if (generalType == 'audio') {
+                            const audio = document.createElement('audio');
+                            audio.src = fileData;
+                            audio.controls = true;
+                            body.appendChild(audio);
+                        } else if (generalType == 'video') {
+                            const video = document.createElement('video');
+                            video.src = fileData;
+                            video.controls = true;
+                            body.appendChild(video);
+                        } else if (generalType == 'image') {
+                            const img = document.createElement('img');
+                            img.src = fileData;
+                            img.style.maxWidth = '100%';
+                            img.style.maxHeight = '100%';
+                            body.appendChild(img);
+                        } else {
+                            const iframe = document.createElement('iframe');
+                            iframe.src = fileData
+                            body.appendChild(iframe);
+                            iframe.style.width = '100%'
+                            iframe.style.height = '100%'
+                            iframe.style.padding = '0'
+                            iframe.style.margin = '0'
+                            iframe.style.border = 'none'
+                        }
+                        body.style.display = 'flex';
+                        body.style.alignItems = 'center';
+                        body.style.justifyContent = 'center';
+                        body.style.backgroundColor = 'black'
+                        body.style.width = '100%'
+                        body.style.height = '100%'
+                        body.style.border = 'none'
+                        body.style.padding = '0'
+                        body.style.margin = '0'
+                    }, 0);
+                }}
+            >
+                <div className={contextMenuStyles.contextMenuItemText}>Open In New Tab</div>
+                <div className={contextMenuStyles.contextMenuItemIcon} >open_in_new</div>
+            </li>
+        </ul>
+    )
+}
+// TODO: Finish the rest of the context menus
+export function UserContextMenu({ group, user, msgsState, data }) {
+    const [messages, setMessages] = msgsState
     return (
         <ul className={contextMenuStyles.contextMenuContainer}>
             <li className={contextMenuStyles.contextMenuItem}>
@@ -1111,21 +1516,117 @@ export function UserContextMenu({ }) {
         </ul>
     )
 }
-export function GroupContextMenu({ }) {
-
+export function GroupContextMenu({ group, user, msgsState, data }) {
+    return <></>
 }
-export function FileContextMenu() {
 
+// Modals
+export function MiniNotificationModal({ state, setState }) { // click to close, status will determine icon and color, message will be displayed
+    const [hover, setHover] = useState(false)
+    const text = state.data ? state.data.message : ''
+
+    function closeModal() {
+        setState({ state: `close ${state.state}`, data: state.data })
+        const timeout = setTimeout(() => {
+            setState({ state: 'null', data: null })
+            clearTimeout(timeout)
+        }, 300);
+    }
+
+    useEffect(() => { // Close modal after 3 seconds
+        if (state.state.match(/null/g) || hover) return
+
+        const timeout = setTimeout(closeModal, 3000);
+
+        return () => {
+            clearTimeout(timeout)
+        }
+    }, [state.state, hover])
+
+    return (
+        <div className={modalStyles.miniModalContainer} data-state={state.state}
+            onClick={closeModal}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+        >
+            {text}
+        </div>
+    )
+}
+export function FullModalWrapper({ state, setState, children }) { // title, content, status
+    return (
+        <div className={modalStyles.fullModalContainer} data-state={state.state}>
+            <div className={modalStyles.fullModalBackground} onClick={() => setState({ state: false, data: state.data })}></div>
+            <div className={modalStyles.fullModalContent}>
+                <div className={modalStyles.fullModalClose}>
+                    <div className={modalStyles.fullModalCloseIcon} onClick={() => setState({ state: false, data: state.data })}>close</div>
+                </div>
+                <div className={modalStyles.fullModalTitle}>{state.data ? state.data.title : ''}</div>
+
+                <div className={modalStyles.fullModalChildren}>{children}</div>
+            </div>
+        </div>
+    )
 }
 
 // Extra
 export function NoGroupSelected() {
-    return <></>
+    return (
+        <div style={{ width: '100%', height: '100%', display: "flex", justifyContent: "center", alignItems: "center", fontSize: '40px', color: 'var(--font-color)' }}>
+            Select A Group
+        </div>
+    )
 }
 export function PageLoading() {
     return (
         <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
             <Spinner color={SPINNER_COLOR} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
+        </div>
+    )
+}
+export function AccountDropdown({ signOut }) {
+    const [open, setOpen] = useState(false)
+    const [clickOpen, setClickOpen] = useState(false)
+    const [signOutLoading, setSignOutLoading] = useState(false)
+
+    return (
+        <div className={homeStyles.dropdownContainer} style={{ borderRadius: open ? '6px 6px 0 0' : '6px' }}
+            onMouseOver={() => {
+                if (!clickOpen) setOpen(true)
+            }}
+            onMouseLeave={() => {
+                if (!clickOpen) setOpen(false)
+            }}
+        >
+            <div className={homeStyles.dropdownButton}
+                style={{ borderRadius: open ? '6px 6px 0 0' : '6px' }}
+                onClick={() => setClickOpen(!clickOpen)}
+            >
+                <div className={homeStyles.dropdownButtonText}>Manage Account</div>
+                <div className={homeStyles.dropdownButtonIcon}>account_circle</div>
+            </div>
+            <ul className={homeStyles.dropdown} style={{ top: open ? '44px' : '0px', opacity: open ? '1' : '0', pointerEvents: open ? 'all' : 'none' }}>
+                <li className={homeStyles.dropdownItem} onClick={() => window.location = '/account/myaccount'}>
+                    <div className={homeStyles.dropdownItemText}>Settings</div>
+                    <div className={homeStyles.dropdownItemIcon}>settings</div>
+                </li>
+                <li className={`${homeStyles.dropdownItem} ${homeStyles.dropdownItemImportant}`} onClick={async () => {
+                    setSignOutLoading(true)
+                    setTimeout(async () => {
+                        await signOut()
+                    }, 1500);
+                }}>
+                    {
+                        signOutLoading ?
+                            <Spinner color={'#d25041'} height={23} width={23} thickness={4} animationDuration={'.95s'} />
+                            :
+                            <>
+                                <div className={homeStyles.dropdownItemText}>Sign Out</div>
+                                <div className={homeStyles.dropdownItemIcon}>logout</div>
+                            </>
+                    }
+                </li>
+            </ul>
         </div>
     )
 }

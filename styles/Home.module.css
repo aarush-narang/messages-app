@@ -1,3 +1,10 @@
+.contentContainer {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+    position: relative;
+}
+
 .container {
     display: flex;
     height: calc(100vh - var(--header-height));
@@ -27,4 +34,107 @@
 .container *::-webkit-scrollbar-thumb:active {
     background: hsl(185, 80%, 23%);
 }
+
 /* https://openbase.com/js/parallax-js */
+
+/* Dropdown */
+.dropdownContainer {
+    background-color: #0e4e54;
+    width: fit-content;
+    user-select: none;
+    cursor: pointer;
+    position: relative;
+    z-index: 100000;
+}
+
+.dropdownButton {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    list-style: none;
+    font-size: 16px;
+    padding: 8px 10px 8px 10px;
+    transition: background-color 150ms ease;
+}
+.dropdownButton:hover {
+    background-color: #125e65;
+    border: none;
+}
+.dropdownButtonText {
+    margin-right: 7px;
+}
+
+.dropdownButtonIcon {
+    font-family: var(--symbols-font-family);
+    font-size: 24px;
+    text-align: center;
+}
+
+.dropdown {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    list-style: none;
+
+    background-color: #0e4e54;
+    padding: 0px 0 8px 0;
+    margin: 0;
+    width: 100%;
+    right: 0px;
+
+    border-radius: 0 0 5px 5px;
+    transition:
+        opacity 100ms ease,
+        top 200ms ease;
+}
+
+.dropdownItem {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 5px 30px;
+    font-size: 16px;
+    border-radius: 4px;
+    transition: background-color 150ms ease;
+}
+
+.dropdownItem:hover {
+    background-color: #32898f;
+}
+
+
+
+.dropdownItemImportant {
+    color: var(--color-error-dark);
+}
+
+.dropdownItemText {
+    font-weight: bold;
+    flex-grow: 1;
+}
+
+.dropdownItemIcon {
+    font-family: var(--symbols-font-family);
+    font-size: 24px;
+}
+
+@media screen and (max-width: 600px) {
+    .dropdownButtonText {
+        display: none;
+    }
+
+    .dropdownButtonIcon {
+        margin-right: 0px;
+    }
+
+    .dropdownItem {
+        padding: 6px 0px;
+    }
+
+    .dropdownItemText {
+        display: none;
+    }
+}

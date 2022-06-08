@@ -1,8 +1,9 @@
 import Head from "next/head";
 import { csrf } from "../../lib/middleware";
 import { FormPagesHeader, HomeHeader } from "../components/header";
-import { GroupsComponent, ChatComponent, PageLoading, ContextMenu } from "../components/chatComponents";
+import { GroupsComponent, ChatComponent, PageLoading, ContextMenu, FullNotificationModal, MiniNotificationModal, JoinGroupModal, FullModalWrapper } from "../components/chatComponents";
 import styles from "../../styles/Home.module.css";
+import modalStyles from "../../styles/ChatStyles/ModalComponentStyles.module.css";
 import * as cookie from 'cookie'
 import { useRouter } from 'next/router'
 import { useState, useEffect } from "react";
@@ -43,9 +44,25 @@ export default function Groups({ data, csrfToken }) {
         const [socket, setSocket] = useState(null); // initialize socket connection to server
 
         // Context Menu States
-        const [contextMenu, setContextMenu] = useState(null)
-        const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
-        const [contextMenuData, setContextMenuData] = useState(null)
+        const ctxMenu = useState(null)
+        const ctxMenuPos = useState({ x: 0, y: 0 })
+        const ctxMenuData = useState(null)
+
+        // Modal States
+        const [notificationModalState, _setNotificationModalState] = useState({ state: 'null', data: null }) // null = closed, success = green, warning = yellow, error = red
+
+        function setNotificationModalState(newData) {
+            if (notificationModalState.state != 'null') {
+                _setNotificationModalState({ state: `close ${notificationModalState.state}`, data: notificationModalState.data })
+                setTimeout(() => {
+                    _setNotificationModalState(newData)
+                }, 400);
+            } else {
+                _setNotificationModalState(newData)
+            }
+        }
+
+
         // socket connection
         const [loading, setLoading] = useState(true)
         useEffect(() => {
@@ -63,10 +80,16 @@ export default function Groups({ data, csrfToken }) {
                         socket.on('connect', () => {
                             // loaded
                             setLoading(false)
-                            console.log('connected client socket')
 
                             // initialize data
                             socket.emit('init-server', jsCookie.get('accessToken'), (data) => {
+                                if (!data) {
+                                    setLoading(true)
+                                    jsCookie.remove('accessToken')
+                                    jsCookie.remove('refreshToken')
+                                    window.location.reload()
+                                    return
+                                }
                                 setGroups(data.groups)
                                 setUser(data.user)
 
@@ -74,9 +97,24 @@ export default function Groups({ data, csrfToken }) {
                                 setCurrentGroup(current)
                             })
                         })
+                        socket.on('connection_error', (err) => {
+                            console.log(err)
+                            // failed
+                            setLoading(true)
+                        })
+                        socket.on('disconnect', () => {
+
+                        })
                     })
+                }).then(r => {
+                    if (r.status != 200) {
+                        console.log(r)
+                        jsCookie.remove('accessToken')
+                        jsCookie.remove('refreshToken')
+                        window.location = '/'
+                    }
                 })
-            }, 2000)
+            }, 1000)
         }, [])
 
         if (loading) {
@@ -94,28 +132,24 @@ export default function Groups({ data, csrfToken }) {
         }
 
 
-
         return (
-            <div style={{ overflowY: 'hidden' }}
-                onContextMenu={(e) => {
+            <div className={styles.contentContainer}
+                onContextMenu={(e) => { // prevent context menu from showing when messages/groups/users are not clicked
                     e.preventDefault()
+
                     const path = e.nativeEvent.composedPath()
                     const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
                     const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
 
-                    if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
-
-                    const clientX = e.clientX
-                    const clientY = e.clientY
-
-                    setContextMenu(contextType)
-                    setContextMenuPos({ x: clientX, y: clientY })
-                    setContextMenuData(mainTarget)
+                    if (contextType == 'NONE') {
+                        ctxMenu[1](null)
+                        ctxMenuData[1](null)
+                    }
                 }}
-                onClick={() => { // close context menu if it is open
-                    if (contextMenu) {
-                        setContextMenu(null)
-                        setContextMenuData(null)
+                onClick={(e) => { // close context menu if it is open
+                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU') {
+                        ctxMenu[1](null)
+                        ctxMenuData[1](null)
                     }
                 }}
             >
@@ -125,11 +159,47 @@ export default function Groups({ data, csrfToken }) {
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
                 <div className={styles.container}>
                     {/* group chat selection */}
-                    <GroupsComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} socket={socket} />
+                    <GroupsComponent
+                        csrfToken={csrfToken}
+                        groups={groups}
+                        currentGroup={currentGroup}
+                        user={user}
+                        socket={socket}
+                        ctxMenu={ctxMenu}
+                        ctxMenuPos={ctxMenuPos}
+                        ctxMenuData={ctxMenuData}
+                        setNotificationState={setNotificationModalState}
+                    />
                     {/* chat area */}
-                    <ChatComponent csrfToken={csrfToken} groups={groups} currentGroup={currentGroup} user={user} msgsState={msgsState} socket={socket} />
+                    <ChatComponent
+                        csrfToken={csrfToken}
+                        groups={groups}
+                        currentGroup={currentGroup}
+                        user={user}
+                        msgsState={msgsState}
+                        socket={socket}
+                        ctxMenu={ctxMenu}
+                        ctxMenuPos={ctxMenuPos}
+                        ctxMenuData={ctxMenuData}
+                        setNotificationState={setNotificationModalState}
+                    />
                 </div>
-                <ContextMenu type={contextMenu} x={contextMenuPos.x} y={contextMenuPos.y} data={contextMenuData} currentGroup={currentGroup} user={user} messages={msgsState[0]} />
+                <ContextMenu
+                    type={ctxMenu[0]}
+                    x={ctxMenuPos[0].x}
+                    y={ctxMenuPos[0].y}
+                    data={ctxMenuData[0]}
+                    currentGroup={currentGroup}
+                    user={user}
+                    msgsState={msgsState}
+                    socket={socket}
+                    setNotificationState={setNotificationModalState}
+                />
+                {
+                    !notificationModalState.state.includes('null') ?
+                        <MiniNotificationModal state={notificationModalState} setState={setNotificationModalState} />
+                        : null
+                }
             </div>
         );
     }

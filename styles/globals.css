@@ -22,9 +22,9 @@ https://coolors.co/0e3b43-22454b-354f52-6f908e-a3bbad-002e2c-357266-84a98c
     --color-correct-light: #6ccea5;
     --color-correct-dark: #4CA26F;
     --color-warning-light: #FFF5B3;
-    --color-warning-dark: #F3E588;
-    --color-error-light: #ce8b7e;
-    --color-error-dark: #ff4e3a;
+    --color-warning-dark: #f3e188;
+    --color-error-light: #d17766;
+    --color-error-dark: #d25041;
 
     --font-color: var(--cyan-tone-light);
     --font-color-secondary: var(--cyan-tone-dark);

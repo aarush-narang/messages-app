@@ -4,13 +4,9 @@
     flex-direction: column;
     justify-content: center;
 }
+
 .messageFile {
     margin-top: 10px;
-}
-
-/* image file */
-img.messageFile {
-    width: 100px;
 }
 
 /* text file */
@@ -81,7 +77,6 @@ pre.messageFile .preFileSize {
     background-color: rgba(0, 0, 0, 0.5);
     border: 1px solid hsl(190, 35%, 55%);
 
-    width: 100%;
     height: 100%;
     border-radius: 4px;
 }
@@ -126,4 +121,142 @@ pre.messageFile .preFileSize {
 
 .fileInfo .fileSize {
     font-size: 11px;
+}
+
+/* currently attached images/files */
+.attachedFilesContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    position: relative;
+
+    margin: 0 10px;
+    padding: 10px 10px;
+    border-radius: 4px 4px 0 0;
+
+    background-color: #1e5a64;
+
+    overflow-y: hidden;
+    overflow-x: auto;
+
+    /* max-height: 240px; */
+}
+
+.attachedFileViewContainer {
+    position: relative;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+
+    padding: 10px;
+
+    height: 200px;
+    aspect-ratio: 1;
+
+    background-color: #0f2d32;
+    border: 1px solid hsl(190, 35%, 55%);
+    border-radius: 4px;
+}
+
+.attachedFileViewContainer:not(:last-child) {
+    margin-right: 25px;
+}
+
+.attachedFile {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 5px;
+    flex-grow: 1;
+}
+
+.attachedImage {
+    max-width: 170px;
+    max-height: 140px;
+    border-radius: 4px;
+}
+
+.attachedFileName {
+    font-size: 15px;
+    color: hsl(188, 69%, 79%);
+    text-decoration: underline;
+    word-break: break-all;
+}
+
+/* attached files button */
+.attachmentButtons {
+    display: flex;
+    flex-direction: row;
+    position: absolute;
+    background-color: #16434d;
+    right: -20px;
+    top: -5px;
+    border-radius: 5px;
+    transition: 150ms ease;
+    width: fit-content;
+    height: fit-content;
+}
+.attachmentButtons:hover {
+    box-shadow: -2px 2px 5px hsl(190, 31%, 34%);
+}
+
+.attachmentButton {
+    font-family: var(--symbols-font-family);
+    font-size: 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    aspect-ratio: 1;
+    text-align: center;
+    vertical-align: middle;
+    padding: 5px;
+    width: 34px;
+    height: 34px;
+    transition: 100ms ease;
+}
+.attachmentButton:hover {
+    background-color: #376b77;
+}
+.removeAttachmentButton {
+    color: var(--color-error-dark);
+}
+.editAttachmentButton {
+    color: var(--font-color);
+}
+/* Edit Attachment Input Styles */
+.editAttachmentFormContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+.editAttachmentInput {
+    outline: none;
+    border: none;
+    background-color: #1e5a64;
+    color: var(--font-color);
+    font-family: Urbanist;
+    font-size: 14px;
+    border-radius: 4px 0 0 4px;
+    width: 100%;
+    height: 100%;
+    padding: 6px;
+    text-decoration: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.editAttachmentSubmit {
+    background-color: #1e5a64;
+    color: var(--font-color);
+    font-family: var(--symbols-font-family);
+    font-size: 20px;
+    border-radius: 0 4px 4px 0;
+    height: 100%;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    transition: 150ms ease;
+}
+.editAttachmentSubmit:hover {
+    background-color: #256d79;
 }

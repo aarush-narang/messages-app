@@ -14,17 +14,16 @@
     position: relative;
     justify-content: center;
     align-items: center;
-    background-color: hsl(189, 66%, 11%);
 
     min-width: max-content;
     max-width: 100%;
-    padding: 10px;
+    padding: 0 10px 10px 10px;
 }
 
 .messageInputForm {
     display: flex;
     position: relative;
-    background-color: #214E56;
+    background-color: #1e5a64;
     border-radius: 4px;
     padding: 6px 0px;
     width: 100%;
@@ -58,6 +57,7 @@
 }
 .messageTextContainer[data-overflow="error"]::after {
     color: var(--color-error-dark);
+    font-weight: bold;
 }
 
 .contentEditableMessageAreaContainer {
@@ -235,7 +235,7 @@
     transition: opacity 120ms ease-in-out;
 }
 .message:hover {
-    opacity: 0.85;
+    opacity: 0.95;
 }
 
 .messageHeader {
@@ -260,6 +260,13 @@
     width: 100%;
 }
 
+.messageContentContainer {
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+
 .messageIcon {
     width: 50px;
     height: 50px;
@@ -283,19 +290,41 @@
     font-size: 15px;
     line-height: 22px;
 }
-.messageContentMarkdown p {
-    margin: 0;
+
+.messageContentEditable {
+    background-color: hsla(191, 44%, 54%, 0.902);
+    border-radius: 6px;
+    padding: 10px;
+    max-width: 100%;
+    max-height: 300px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+    outline: none;
+
+    word-break: break-all;
+    white-space: pre-wrap;
 }
-.messageContentCode {
+.messageContentEditableInfo {
+    display: flex;
+    margin-top: 6px;
+    font-size: 14px;
+}
+.messageContentEditableInfo kbd {
+    padding: 0 2px;
+    cursor: pointer;
+    color: rgb(150, 217, 255);
+}
+.messageContentEditableInfo kbd:hover {
+   text-decoration: underline;
+}
+/* .messageContentCode {
     background-color: rgba(255, 255, 255, 0.1);
     padding: 0 15px 15px 15px;
     border-radius: 4px;
     overflow: auto;
     white-space: pre-wrap;
-}
-
-
-
+} */
 
 /* extra message information */
 .messageInfo {

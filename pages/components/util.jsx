@@ -30,13 +30,11 @@ export function useTimeout(callback, delay) {
 
     return { reset, clear }
 }
-
 export function useDebounce(callback, delay, dependencies) {
     const { reset, clear } = useTimeout(callback, delay)
     useEffect(reset, [...dependencies, reset])
     useEffect(clear, [])
 }
-
 export function useThrottle(cb, delay = 1000) {
     let shouldWait = false
     let waitingArgs
@@ -62,7 +60,6 @@ export function useThrottle(cb, delay = 1000) {
         setTimeout(timeoutFunc, delay)
     }
 }
-
 export async function useRefetchToken(callback) { // callback is a function that returns a fetch response
     const res = await callback()
     if (res.status !== 200) {
@@ -130,7 +127,6 @@ export function calculateFileSize(base64) {
     if(typeof base64 !== 'string') base64 = Buffer.from(base64, 'binary').toString('base64')
     return formatBytes((base64.length * (3 / 4)) - (base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0))) // base64 size formula
 }
-
 export function downloadBase64File(data, fileName) {
     const downloadLink = document.createElement('a');
     document.body.appendChild(downloadLink);
@@ -141,4 +137,13 @@ export function downloadBase64File(data, fileName) {
     downloadLink.click();
     document.body.removeChild(downloadLink);
 }
+export function formatDuration(duration) {
+    const leadingZeroFormatter = new Intl.NumberFormat(undefined, {
+        minimumIntegerDigits: 2,
+    })
+    const seconds = Math.floor(duration % 60)
+    const minutes = Math.floor(duration / 60) % 60
+    const hours = Math.floor(duration / 3600)
 
+    return (hours > 0 ? `${hours}:` : '') + (minutes > 0 ? `${leadingZeroFormatter.format(minutes)}:` : '0:') + `${leadingZeroFormatter.format(seconds)}`
+}

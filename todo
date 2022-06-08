@@ -1,34 +1,29 @@
-- create context menu for groups, messages, people, etc. (like discord) create event listener on doc and check what was right clicked and based off that change the context menu, add read receipts to this. [Example for custom contextmenu](https://itnext.io/how-to-create-a-custom-right-click-menu-with-javascript-9c368bb58724)
-- add code highlight in message box and in message display
-- fix lagging with syntax highlighting and add it to the textarea as well. or maybe replace textarea with div-contenteditable
-- replace all alerts on frontend with modals
 # PRIORITY:
+- drag and drop files, paste files into input
+- edit attachment name
+- create context menu for groups, people
 - create friends tab in groups side nav (where friends can be added from)
-- create members list for each group, displaying name and allowing for context menu
+- create groups and add people to groups
+- create myaccount page for: account settings (change password, change email, change username, change avatar, delete account)
+- create members list for each group, displaying name and allowing for context menu, allow to kick members (only person who created the group can do this)
+
+## EXTRA:
+- add code highlight in message box and in message display
+- fix lagging with syntax highlighting
 - paste image in message area
 - fix logout issue with brave browser? and other browsers that block tracking and ip grabbing
-- manage (SOCKET EVENTS)
-    - message edits
-    - message deletes 
-    - new groups (create modal first)
-    - plus other events
+
 
 ## BUGS:
 - all "FIX" or "TODO" comments
-
-## MODALS & CONTEXT MENU:
-- create "saved!" modal for updating things like account settings, group order, etc.
-create modal for creating groups or direct messages
 
 ## HEADER:
 - create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages
 create settings page to change username, email, phone #, password, etc as well as to manage sessions panel (put btn in dropdown)
 fix header sizing
-
-## SESSIONS PANEL:
-- create a sessions panel with all open sessions: restore previous sessions if ip is same by refreshing access token?
-come up with ways to remove refresh tokens automatically that are not being used (max number of sessions?)
+    - SESSIONS PANEL:
+        - create a sessions panel with all open sessions: restore previous sessions if ip is same by refreshing access token?
+        come up with ways to remove refresh tokens automatically that are not being used (max number of sessions?)
 
 ## OTHER:
 - create visitor page with parallax effect (use fireship video for tutorial)
-- search through all files for other TODOs not listed here

@@ -7,6 +7,7 @@
     background-color: hsl(190, 74%, 13%);
     border-radius: 5px;
     padding: 2px;
+    height: fit-content;
 }
 .contextMenuContainer {
     display: flex;
@@ -16,6 +17,7 @@
     margin: 0;
     padding: 4px;
     border-radius: 4px;
+    height: 100%;
 }
 .contextMenuItem {
     display: flex;
@@ -25,7 +27,6 @@
     cursor: pointer;
     user-select: none;
     width: 100%;
-    font-family: var(--symbols-font-family);
     color: var(--font-color);
     padding: 6px 8px;
     border-radius: 6px;
@@ -35,12 +36,41 @@
     color: hsl(174, 85%, 7%);
 }
 
+.contextMenuFileInfo {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    color: var(--font-color);
+    background-color: hsl(190, 74%, 16%);
+
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    height: fit-content;
+    word-break: break-all;
+}
+.contextMenuFileInfo > .contextMenuItemText {
+    margin-top: 6px;
+}
+.contextMenuFileInfo > div {
+    display: flex;
+    justify-content: space-between;
+    font-family: monospace;
+    font-size: 90%;
+    margin: 1px 0;
+}
 
 .contextMenuItemErr:hover {
     background-color: var(--color-error-dark);
 }
 .contextMenuItemErr:hover .contextMenuItemTextErr {
-    color: var(--font-color);
+    color: hsl(190, 74%, 13%);
+}
+.contextMenuItemWarn:hover {
+    background-color: var(--color-warning-dark);
+}
+.contextMenuItemWarn:hover .contextMenuItemTextWarn {
+    color: hsl(190, 74%, 13%);
 }
 /* Text and Icons */
 .contextMenuItemText {
@@ -52,7 +82,13 @@
     font-weight: bold;
     letter-spacing: 0.8px;
 }
+.contextMenuItemTextWarn {
+    color: var(--color-warning-dark);
+    font-weight: bold;
+    letter-spacing: 0.8px;
+}
 .contextMenuItemIcon {
     aspect-ratio: 1;
     font-size: 20px;
+    font-family: var(--symbols-font-family);
 }
