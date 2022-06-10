@@ -58,6 +58,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
     }
     groups.sort((a, b) => a.order - b.order)
 
+
     const [user, setUser] = userState
 
     // start the groups menu open or closed
@@ -310,14 +311,13 @@ export function CurrentFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMe
                 setContextMenuData({ friendData: friend })
             }}
         >
-            {friend.username}
+            
         </div>
     )
 }
 export function PendingFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
     return <>{friend.username}</>
 }
-
 export function OutgoingFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
     return <>{friend.username}</>
 }
@@ -363,10 +363,7 @@ export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData })
             }}
         >
             <div className={groupStyles.groupImage}>
-                {
-                    group.icon ? <img title={`${group.name}'s icon`} src={`/api/v1/data/images/${group.icon}`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} /> :
-                        <img title={`${group.name}'s icon`} src={`/api/v1/data/images/default`} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
-                }
+                <img title={`${group.name}'s icon`} src={group.icon} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
             </div>
             <div className={groupStyles.groupInfo}>
                 <h4 title={group.name} className={groupStyles.groupTitle}>{shortenName(group.name)}</h4>
@@ -376,7 +373,6 @@ export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData })
         </div>
     )
 }
-
 export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) {
         return (
@@ -845,7 +841,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                 handleContextMenuMessage(e, message, clientX, clientY)
             }}
         >
-            <img data-contexttype="USER" className={chatStyles.messageIcon} src={`/api/v1/data/images/${message.author.icon}`} loading={"lazy"} alt={`${message.author.username}'s icon`} />
+            <img data-contexttype="USER" className={chatStyles.messageIcon} src={message.author.icon} loading={"lazy"} alt={`${message.author.username}'s icon`} />
 
             <div className={chatStyles.messageContainer}>
                 <div className={chatStyles.messageHeader}>
@@ -1445,7 +1441,7 @@ export function DefaultFileView({ data, name, mimeType, fileSize, onContextMenu 
 }
 export function AttachedFileView({ id, data, name, mimeType, fileSize, onContextMenu, attachedFiles, setAttachedFiles, setNotificationState }) {
     const generalType = mimeType.split('/')[0]
-    const specificType = mimeType.split('/')[1] 
+    const specificType = mimeType.split('/')[1]
 
     const [editState, setEditState] = useState(false)
 
