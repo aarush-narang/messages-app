@@ -18,7 +18,7 @@
 .container {
     display: flex;
     height: calc(100vh - var(--header-height));
-    width: 100%;
+    width: 100%;    
 }
 
 /* scrollbars */
@@ -152,4 +152,19 @@
     .dropdownItemText {
         display: none;
     }
+}
+/* https://openbase.com/js/parallax-js */
+
+/* parallax effect */
+.scene {
+    height: 100%;
+    width: 100%;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+.scene * {
+    position: relative !important;
 }

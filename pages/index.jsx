@@ -1,5 +1,5 @@
 import Head from "next/head";
-import styles from "../styles/Home.module.css";
+import homeStyles from "../styles/Home.module.css";
 import * as cookie from 'cookie'
 import { HomeHeader } from "./components/header";
 import { csrf } from "../lib/middleware";
@@ -8,17 +8,26 @@ import { useState, useEffect } from "react";
 import io from "socket.io-client";
 import jsCookie from "js-cookie";
 import { useRefetchToken } from "./components/util";
+import Parallax from 'parallax-js';
 
 export default function Home({ data, csrfToken }) {
     if (!data.account_status) {
+        useEffect(() => {
+            const scene = document.querySelector('[data-parallax-scene]');
+            const parallaxInstance = new Parallax(scene);
+        }, [])
         return (
             <>
                 <HomeHeader title={""} signedIn={false} />
-                <div className={styles.container}>
+                <div className={homeStyles.container}>
                     <Head>
                         <title>Messages</title>
                     </Head>
-
+                    <div data-parallax-scene className={homeStyles.scene}>
+                        <pre>
+                            
+                        </pre> 
+                    </div>
                 </div>
             </>
 
@@ -138,8 +147,13 @@ export default function Home({ data, csrfToken }) {
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
+<<<<<<< Updated upstream
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} user={user} />
                 <div className={styles.container}>
+=======
+                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
+                <div className={homeStyles.container}>
+>>>>>>> Stashed changes
                     {/* group chat selection */}
                     <GroupsComponent
                         csrfToken={csrfToken}
