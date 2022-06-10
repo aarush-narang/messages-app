@@ -124,7 +124,7 @@ export default function Home({ data, csrfToken }) {
         }
 
         return (
-            <div className={styles.contentContainer}
+            <div className={homeStyles.contentContainer}
                 onContextMenu={(e) => { // prevent context menu from showing when messages/groups/users are not clicked
                     e.preventDefault()
 
@@ -147,13 +147,8 @@ export default function Home({ data, csrfToken }) {
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
-<<<<<<< Updated upstream
                 <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} user={user} />
-                <div className={styles.container}>
-=======
-                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
                 <div className={homeStyles.container}>
->>>>>>> Stashed changes
                     {/* group chat selection */}
                     <GroupsComponent
                         csrfToken={csrfToken}
