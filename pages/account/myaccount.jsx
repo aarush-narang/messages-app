@@ -8,7 +8,7 @@ import { FormPagesHeader } from "../components/header";
 
 
 export default function MyAccount({ csrfToken }) {
-    
+    // default start tab (friends or groups), change password, change email, change username, change avatar
     return (
         <>
             testsetsetsetestst

@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useRefetchToken } from './util'
 import { AccountDropdown } from './chatComponents'
 
-export function HomeHeader({ title = '', signedIn = false, csrfToken }) {
+export function HomeHeader({ title = '', signedIn = false, csrfToken, user }) {
     const [loading, setLoading] = useState(false)
     if (signedIn) {
         return (
@@ -35,7 +35,7 @@ export function HomeHeader({ title = '', signedIn = false, csrfToken }) {
                                 window.location.reload()
                             }
                         }, 500);
-                    }} />
+                    }} username={user.username} />
                 </div>
             </div>
         )

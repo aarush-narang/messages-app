@@ -1,8 +1,8 @@
 # PRIORITY:
-- drag and drop files, paste files into input
-- edit attachment name
-- create context menu for groups, people
+- user current pending friend requests (that the user has to accept) and outgoing requests pending
 - create friends tab in groups side nav (where friends can be added from)
+- change avatar management, instead of creating hash, just store b64 in their db document and use that
+- create context menu for groups, people
 - create groups and add people to groups
 - create myaccount page for: account settings (change password, change email, change username, change avatar, delete account)
 - create members list for each group, displaying name and allowing for context menu, allow to kick members (only person who created the group can do this)
@@ -16,6 +16,7 @@
 
 ## BUGS:
 - all "FIX" or "TODO" comments
+- when editing message, allows user to save more than 6000 chars but when sending normally, limited to 6000 chars
 
 ## HEADER:
 - create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages

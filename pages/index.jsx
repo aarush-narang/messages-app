@@ -28,8 +28,8 @@ export default function Home({ data, csrfToken }) {
         const [currentGroup, setCurrentGroup] = useState(null)
         const [groups, setGroups] = useState(null)
         const msgsState = useState([])
-        const [user, setUser] = useState(null)
         const [socket, setSocket] = useState(null); // initialize socket connection to server
+        const [user, setUser] = useState(null)
 
         // Context Menu States
         const ctxMenu = useState(null)
@@ -129,7 +129,7 @@ export default function Home({ data, csrfToken }) {
                     }
                 }}
                 onClick={(e) => { // close context menu if it is open
-                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU') {
+                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU' && e.target.dataset.type != 'OPTIONS') {
                         ctxMenu[1](null)
                         ctxMenuData[1](null)
                     }
@@ -138,14 +138,14 @@ export default function Home({ data, csrfToken }) {
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
-                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
+                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} user={user} />
                 <div className={styles.container}>
                     {/* group chat selection */}
                     <GroupsComponent
                         csrfToken={csrfToken}
                         groups={groups}
                         currentGroup={currentGroup}
-                        user={user}
+                        userState={[user, setUser]}
                         socket={socket}
                         ctxMenu={ctxMenu}
                         ctxMenuPos={ctxMenuPos}

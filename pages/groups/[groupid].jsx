@@ -3,7 +3,6 @@ import { csrf } from "../../lib/middleware";
 import { FormPagesHeader, HomeHeader } from "../components/header";
 import { GroupsComponent, ChatComponent, PageLoading, ContextMenu, FullNotificationModal, MiniNotificationModal, JoinGroupModal, FullModalWrapper } from "../components/chatComponents";
 import styles from "../../styles/Home.module.css";
-import modalStyles from "../../styles/ChatStyles/ModalComponentStyles.module.css";
 import * as cookie from 'cookie'
 import { useRouter } from 'next/router'
 import { useState, useEffect } from "react";
@@ -40,8 +39,8 @@ export default function Groups({ data, csrfToken }) {
         // data
         const [groups, setGroups] = useState(null)
         const msgsState = useState([])
-        const [user, setUser] = useState(null)
         const [socket, setSocket] = useState(null); // initialize socket connection to server
+        const [user, setUser] = useState(null)
 
         // Context Menu States
         const ctxMenu = useState(null)
@@ -61,7 +60,6 @@ export default function Groups({ data, csrfToken }) {
                 _setNotificationModalState(newData)
             }
         }
-
 
         // socket connection
         const [loading, setLoading] = useState(true)
@@ -147,7 +145,7 @@ export default function Groups({ data, csrfToken }) {
                     }
                 }}
                 onClick={(e) => { // close context menu if it is open
-                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU') {
+                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU' && e.target.dataset.type != 'OPTIONS') {
                         ctxMenu[1](null)
                         ctxMenuData[1](null)
                     }
@@ -156,14 +154,14 @@ export default function Groups({ data, csrfToken }) {
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
-                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} />
+                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} user={user} />
                 <div className={styles.container}>
                     {/* group chat selection */}
                     <GroupsComponent
                         csrfToken={csrfToken}
                         groups={groups}
                         currentGroup={currentGroup}
-                        user={user}
+                        userState={[user, setUser]}
                         socket={socket}
                         ctxMenu={ctxMenu}
                         ctxMenuPos={ctxMenuPos}

@@ -8,6 +8,11 @@
     height: 100%;
 }
 
+.main.dragOver {
+    opacity: 0.9;
+    background-color: black;
+}
+
 /* message input area */
 .messageInputContainer {
     display: flex;
@@ -292,7 +297,7 @@
 }
 
 .messageContentEditable {
-    background-color: hsla(191, 44%, 54%, 0.902);
+    background-color: rgba(9, 56, 67, 0.956);
     border-radius: 6px;
     padding: 10px;
     max-width: 100%;
@@ -304,6 +309,9 @@
 
     word-break: break-all;
     white-space: pre-wrap;
+}
+.messageContentEditable mkdn {
+    opacity: 0.7;
 }
 .messageContentEditableInfo {
     display: flex;

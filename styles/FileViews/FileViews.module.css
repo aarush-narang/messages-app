@@ -260,3 +260,8 @@ pre.messageFile .preFileSize {
 .editAttachmentSubmit:hover {
     background-color: #256d79;
 }
+/* drag and drop styles */
+.attachedFileViewContainerEmpty {
+    background-color: #123b42;
+    border: 1px dashed hsl(190, 35%, 55%);
+}

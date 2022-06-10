@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Cookies from 'js-cookie'
 
 // Hooks
@@ -82,16 +82,16 @@ export async function useRefetchToken(callback) { // callback is a function that
 
 // Util
 // String Util
-export function shortenName(name) {
-    if (name.length > 15) {
-        return name.substring(0, 12) + '...'
+export function shortenName(name, max = 15) {
+    if (name.length > max) {
+        return name.substring(0, max) + '...'
     }
     return name
 }
-export function shortenFileName(name, max=15) {
+export function shortenFileName(name, max = 15) {
     if (name.length > max) {
         const type = name.split('.').pop()
-        return name.substring(0, max-3) + '... .' + type
+        return name.substring(0, max - 3) + '... .' + type
     }
     return name
 }
@@ -124,7 +124,7 @@ export function formatBytes(bytes, decimals = 2) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 export function calculateFileSize(base64) {
-    if(typeof base64 !== 'string') base64 = Buffer.from(base64, 'binary').toString('base64')
+    if (typeof base64 !== 'string') base64 = Buffer.from(base64, 'binary').toString('base64')
     return formatBytes((base64.length * (3 / 4)) - (base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0))) // base64 size formula
 }
 export function downloadBase64File(data, fileName) {
@@ -146,4 +146,26 @@ export function formatDuration(duration) {
     const hours = Math.floor(duration / 3600)
 
     return (hours > 0 ? `${hours}:` : '') + (minutes > 0 ? `${leadingZeroFormatter.format(minutes)}:` : '0:') + `${leadingZeroFormatter.format(seconds)}`
+}
+export function gcd(a, b) {
+    if (b === 0) return a
+    return gcd(b, a % b)
+}
+
+/**
+ * @param {String} text - text to be formatted
+ * @param {Number} maxLength - max length of the text
+ * @returns String - formatted text
+ */
+export function formatMessageInput(text, maxLength) {
+    if(text.length > maxLength) {
+        text = text.slice(0, maxLength)
+    }
+    // markdown support
+    const markdown = text.replace(/\*\*(.*?)\*\*/g, '<mkdn>***</mkdn><em><strong>$1</strong></em><mkdn>***</mkdn>')
+    const markdown2 = markdown.replace(/\*\*(.*?)\*\*/g, '<mkdn>**</mkdn><strong>$1</strong><mkdn>**</mkdn>')
+    const markdown3 = markdown2.replace(/\*(.*?)\*/g, '<mkdn>*</mkdn><em>$1</em><mkdn>*</mkdn>')
+    // const markdown4 = markdown3.replace(/\~(.*?)\~/g, '<s>~~$1~~</s>')
+    text = markdown3
+    return text
 }

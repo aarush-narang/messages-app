@@ -5,7 +5,9 @@ import { decodeJWT } from '../../../../lib/helpers/jwt-middleware'
 import SnowflakeID from 'snowflake-id'
 
 const MAX_BUFFER_SIZE = 50 // max message size in mb
-
+const authors = [] // keep in memory for less db calls
+const MAX_PENDING_FRIEND_REQUESTS = 100
+const MAX_OUTGOING_FRIEND_REQUESTS = MAX_PENDING_FRIEND_REQUESTS
 /*
     Events:
     - file uploads
@@ -15,24 +17,44 @@ const MAX_BUFFER_SIZE = 50 // max message size in mb
     - new groups (create modal first)
 
 */
+async function fetchUserObjectWithUserID(uid) {
+    const dbuser = await QueryUser({ user: { uid } })
+    const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'uid', 'createdAt', 'icon'].includes(key))
+    const userInfo = Object.fromEntries(objEntries)
+    return userInfo
+}
 async function replaceMessagesAuthorId(messages = []) {
     const copy = [...messages]
-    const authors = []
     for (const message of copy) {
-        const findArr = authors.find(author => author.uid == message.author.uid)
+        const findArr = authors.find(author => author.uid == message.author)
         if (findArr) {
             message.author = findArr
         }
         else {
-            const dbuser = await QueryUser({ user: { uid: message.author } })
-            const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'uid', 'createdAt', 'icon'].includes(key))
-            const userInfo = Object.fromEntries(objEntries)
+            const userInfo = await fetchUserObjectWithUserID(message.author)
 
             authors.push(userInfo)
             message.author = userInfo
         }
     }
     return copy
+}
+async function replaceFriendRequestIDsWithObject(requests = []) {
+    const copy = [...requests]
+    const res = []
+    for (let id of copy) {
+        const findArr = authors.find(author => author.uid == id)
+        if (findArr) {
+            res.push(findArr)
+        }
+        else {
+            const userInfo = await fetchUserObjectWithUserID(id)
+
+            authors.push(userInfo)
+            res.push(userInfo)
+        }
+    }
+    return res
 }
 const ioHandler = (req, res) => {
     if (!res.socket.server.io) {
@@ -55,15 +77,15 @@ const ioHandler = (req, res) => {
                     else {
                         const dbuser = await QueryUser({ user: { token: user.token } })
                         if (!dbuser) return cb(null)
-                        const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'email', 'uid', 'createdAt', 'refreshTokens', 'icon'].includes(key))
+                        const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'email', 'uid', 'createdAt', 'refreshTokens', 'icon', 'friends'].includes(key))
                         const userInfo = Object.fromEntries(objEntries)
 
                         const groups = [...dbuser.groups]
 
-                        // subscribe to groups
+                        // connect socket to groups
                         for (const group of groups) {
                             try {
-                                await socket.join((group.id))
+                                await socket.join([group.id, user.uid])
                             } catch (error) {
                                 console.log(`${user.username} failed to join group ${group.id}`)
                             }
@@ -75,6 +97,18 @@ const ioHandler = (req, res) => {
                             const filteredGroup = Object.entries(group).filter(([key, value]) => !['_id', 'messages'].includes(key))
                             groupInfo.push(Object.fromEntries(filteredGroup))
                         }
+
+                        // replace friend request user ids with user objects
+                        const current = await replaceFriendRequestIDsWithObject(dbuser.friends.current)
+                        const pending = await replaceFriendRequestIDsWithObject(dbuser.friends.pending)
+                        const outgoing = await replaceFriendRequestIDsWithObject(dbuser.friends.outgoing)
+
+                        userInfo.friends = {
+                            current,
+                            pending,
+                            outgoing
+                        }
+
                         cb({ groups: groupInfo, user: userInfo })
                     }
                 } catch (error) {
@@ -117,29 +151,15 @@ const ioHandler = (req, res) => {
                         if (group.members.includes(parseInt(user.uid))) {
                             const len = group.messages.length
                             const ct = data.curMsgsCt
-                            if(len - ct <= 0) return cb(null)
+                            if (len - ct <= 0) return cb(null)
 
                             const MESSAGE_BATCH_SIZE = ct * 0.5
                             const messages = [...group.messages].slice(len - ct - (len - ct < MESSAGE_BATCH_SIZE ? len - ct : MESSAGE_BATCH_SIZE), len - ct)
                             if (messages.length == 0) return cb(null)
-                            
-                            const authors = []
 
-                            for (const message of messages) {
-                                const findArr = authors.find(author => author.uid == message.author.uid)
-                                if (findArr) {
-                                    message.author = findArr
-                                }
-                                else {
-                                    const dbuser = await QueryUser({ user: { uid: message.author } })
-                                    const objEntries = Object.entries(dbuser).filter(([key, value]) => ['username', 'uid', 'createdAt', 'icon'].includes(key))
-                                    const userInfo = Object.fromEntries(objEntries)
+                            const messagesWithAuthor = await replaceMessagesAuthorId(messages)
 
-                                    authors.push(userInfo)
-                                    message.author = userInfo
-                                }
-                            }
-                            cb(messages)
+                            cb(messagesWithAuthor)
                         } else {
                             cb(null)
                         }
@@ -270,6 +290,103 @@ const ioHandler = (req, res) => {
                 } catch (error) {
                     console.log(error)
                 }
+            })
+
+            // friend events
+            socket.on('friendRequest-server', async (data, cb) => {
+                try {
+                    const token = data.accessToken
+                    const user = decodeJWT(token)
+                    if (!user) return cb(null)
+                    else {
+                        const friendUser = data.friend
+                        const friend = await QueryUser({ user: friendUser })
+                        const sender = await QueryUser({ user: { token: user.token } })
+
+                        if (friend) {
+                            if (sender.friends.outgoing.includes(friend.uid)) {
+                                cb({ error: `You already have a request outgoing with @${friend.username}` })
+                            } else if (sender.friends.current.includes(friend.uid)) {
+                                cb({ error: `You are already friends with @${friend.username}` })
+                            } else if (sender.friends.pending.includes(friend.uid)) {
+                                const newDataSender = {
+                                    current: sender.friends.current.concat([friend.uid]),
+                                    outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
+                                    pending: sender.friends.pending.filter(uid => uid != friend.uid)
+                                }
+                                const newDataFriend = {
+                                    current: friend.friends.current.concat([sender.uid]),
+                                    outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
+                                    pending: friend.friends.pending.filter(uid => uid != sender.uid)
+                                }
+
+                                await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
+                                await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
+
+                                const newDataSenderObject = {
+                                    current: await replaceFriendRequestIDsWithObject(newDataSender.current),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
+                                    pending: await replaceFriendRequestIDsWithObject(newDataSender.pending)
+                                }
+                                const newDataFriendObject = {
+                                    current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
+                                    pending: await replaceFriendRequestIDsWithObject(newDataFriend.pending)
+                                }
+
+                                io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
+                                io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
+
+                                cb({ success: `You are now friends with @${friend.username}` })
+                            } else if (friend.friends.pending.length > MAX_PENDING_FRIEND_REQUESTS) {
+                                cb({ error: `@${friend.username} has too many pending friend requests` })
+                            } else if (sender.friends.outgoing.length > MAX_OUTGOING_FRIEND_REQUESTS) {
+                                cb({ error: `You have too many outgoing friend requests` })
+                            } else {
+                                const newDataSender = {
+                                    current: sender.friends.current,
+                                    outgoing: sender.friends.outgoing.concat([friend.uid]),
+                                    pending: sender.friends.pending
+                                }
+                                const newDataFriend = {
+                                    current: friend.friends.current,
+                                    outgoing: friend.friends.outgoing,
+                                    pending: friend.friends.pending.concat([sender.uid])
+                                }
+
+                                await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
+                                await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
+
+                                const newDataSenderObject = {
+                                    current: await replaceFriendRequestIDsWithObject(newDataSender.current),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
+                                    pending: await replaceFriendRequestIDsWithObject(newDataSender.pending)
+                                }
+                                const newDataFriendObject = {
+                                    current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
+                                    pending: await replaceFriendRequestIDsWithObject(newDataFriend.pending)
+                                }
+
+                                io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
+                                io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
+
+                                cb({ success: `Friend request sent to @${friend.username}` })
+                            }
+                        } else {
+                            cb({ error: 'User does not exist' })
+                        }
+                    }
+                } catch (error) {
+                    console.log(error)
+                    cb({ error: 'Oops! There was an error. Try again later.' })
+                }
+            })
+            socket.on('friendRequestManage-server', async (data, cb) => {
+
+            })
+            socket.on('friendDelete-server', async (data, cb) => {
+
             })
 
             // group events

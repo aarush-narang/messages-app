@@ -2,6 +2,7 @@
 import homeStyles from "../../styles/Home.module.css";
 import chatStyles from "../../styles/ChatStyles/ChatComponentStyles.module.css";
 import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css";
+import friendStyles from "../../styles/ChatStyles/FriendComponentsStyles.module.css";
 import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
 import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews/FileViews.module.css";
@@ -9,7 +10,7 @@ import contextMenuStyles from "../../styles/ChatStyles/ContextMenuStyles.module.
 import modalStyles from "../../styles/ChatStyles/ModalComponentStyles.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
-import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, formatDuration } from "./util";
+import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, formatDuration, gcd, formatMessageInput } from "./util";
 import { Spinner } from "./formComponents";
 // Util Packages
 import jsCookie from "js-cookie";
@@ -18,9 +19,38 @@ import moment from "moment";
 const SPINNER_COLOR = '#2e8283'
 const MAX_FILE_SIZE_BYTES = 50 * (1024 * 1024); // 50 MB in bytes
 const MAX_MESSAGE_LEN = 6000
+const MAX_FILE_NAME_LEN = 100
+const EXTENSIONS = [
+    'apng',
+    'avif',
+    'jpeg',
+    'png',
+    'svg',
+    'webp',
+    'gif',
+    'ogg',
+    'mp3',
+    'wav',
+    'mpeg',
+    'mp4',
+    'webm',
+    'pdf',
+    'doc',
+    'docx',
+    'xls',
+    'xlsx',
+    'ppt',
+    'pptx',
+    'text',
+    'rtf',
+    'csv',
+    'zip',
+    'rar',
+    '7z',
+]
 
 // Main Components For Chat
-export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
+export function GroupsComponent({ groups, csrfToken, currentGroup, userState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
     if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // if current group is not in groups, render spinner
         return (
             <PageLoading />
@@ -28,12 +58,24 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket,
     }
     groups.sort((a, b) => a.order - b.order)
 
+    const [user, setUser] = userState
+
     // start the groups menu open or closed
     const [menuState, setMenuState] = useState(false); // true = closed, false = open
+
+    // Tab States
+    const [tabState, setTabState] = useState('groups'); // groups or friends
+    const [friendsTabState, setFriendsTabState] = useState('current'); // current, pending, or outgoing
 
     useEffect(() => {
         setMenuState(window.innerWidth < 900)
         window.addEventListener('resize', () => { if (window.innerWidth < 900) setMenuState(true) })
+
+        // socket listeners
+        socket.on('friendRequest-client', (data) => {
+            const newUserData = data.data
+            setUser({ ...user, friends: newUserData })
+        })
     }, [])
 
     // draggable groups
@@ -51,6 +93,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket,
     }, 1000, [order])
 
     useEffect(() => { // update the order of the groups (visually) when the order changes
+        if (tabState == 'friends') return
         const draggables = document.querySelectorAll(`.${groupStyles.group}`);
         const container = document.querySelector(`.${groupStyles.groups}`);
         draggables.forEach(draggable => {
@@ -66,7 +109,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket,
             e.preventDefault()
             const afterElement = getDragAfterElement(container, e.clientY)
             const draggable = document.querySelector(`.${groupStyles.dragging}`)
-            if (draggable.nextSibling === afterElement) return // prevent unnecessary DOM changes
+            if (draggable == null || draggable.nextSibling === afterElement) return; // prevent unnecessary DOM changes
             if (afterElement == null) {
                 container.appendChild(draggable)
             } else {
@@ -96,7 +139,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket,
                 }
             }, { offset: Number.NEGATIVE_INFINITY }).element
         }
-    }, [])
+    }, [tabState])
 
     return (
         <div
@@ -108,26 +151,123 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket,
                 resize: menuState ? 'none' : 'horizontal',
                 overflow: 'hidden',
             }}
-        ><div className={groupStyles.groupsContainer}>
-                <div className={groupStyles.groups} style={{ opacity: menuState ? '0' : '1' }}>
-                    {
-                        groups.length > 0 ?
-                            groups.map(group => {
-                                return (
-                                    // group container
-                                    <Group key={group.id} group={group} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
-                                )
-                            }) :
-                            <div className={groupStyles.noGroupsContainer}>
-                                <div></div>
-                                <h2 style={{ textAlign: 'center' }}>No Direct Messages or Groups created/joined</h2>
-                                <div className={groupStyles.joinGroup} onClick={() => {
-                                    // TODO: pop up a modal to create a group or to create a dm
-                                }}>control_point</div>
-                                <div></div>
-                            </div>
-                    }
+        >
+            <div className={groupStyles.groupsContainer} style={{ opacity: `${menuState ? '0' : '1'}` }}>
+                <div className={groupStyles.groupTabSwitchContainer} style={{ width: `${menuState ? '0px' : '100%'}` }}>
+                    <button className={groupStyles.groupTabSwitch} data-selected={tabState.toLowerCase() == 'groups'}
+                        onClick={() => setTabState('groups')}
+                    >Groups</button>
+                    <button className={groupStyles.groupTabSwitch} data-selected={tabState.toLowerCase() == 'friends'}
+                        onClick={() => setTabState('friends')}
+                    >Friends</button>
                 </div>
+                {
+                    tabState.toLowerCase() == 'groups' ?
+                        <div className={groupStyles.groups} style={{ opacity: menuState ? '0' : '1', width: `${menuState ? '0px' : '100%'}` }}>
+                            {
+                                groups.length > 0 ?
+                                    groups.map(group => {
+                                        return (
+                                            // group container
+                                            <Group key={group.id} group={group} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                        )
+                                    }) :
+                                    <div className={groupStyles.noGroupsContainer}>
+                                        <div></div>
+                                        <h2 style={{ textAlign: 'center' }}>No Direct Messages or Groups created/joined</h2>
+                                        <div className={groupStyles.joinGroup} onClick={() => {
+                                            // TODO: pop up a modal to create a group or to create a dm
+                                        }}>control_point</div>
+                                        <div></div>
+                                    </div>
+                            }
+                        </div>
+                        :
+                        <div className={groupStyles.friends} style={{ opacity: menuState ? '0' : '1', width: `${menuState ? '0px' : '100%'}` }}>
+                            <div className={groupStyles.friendsHeader}>
+                                <form className={groupStyles.friendsHeaderForm}
+                                    onSubmit={(e) => {
+                                        e.preventDefault()
+                                        const formData = new FormData(e.target)
+                                        const friend = formData.get('friends_search')
+                                        e.target.reset()
+                                        if (friend.length == 0) return
+                                        if (friend.slice(1) == user.username || friend == user.uid) return setNotificationState({ state: 'error', data: { message: 'You cannot add yourself' } })
+
+                                        const friendReq = {}
+                                        if (friend.includes('@')) { // username
+                                            friendReq.username = friend.slice(1)
+                                        } else {
+                                            friendReq.uid = parseInt(friend)
+                                        }
+                                        socket.emit('friendRequest-server', { accessToken: jsCookie.get('accessToken'), friend: friendReq }, (data) => {
+                                            if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
+                                            else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
+                                            else setNotificationState({ state: 'success', data: { message: data.success } })
+                                        })
+                                    }}
+                                >
+                                    <input
+                                        className={groupStyles.searchFriendsInput}
+                                        placeholder="Add with @username or by user ID"
+                                        type="text"
+                                        name="friends_search"
+                                        autoCapitalize="none"
+                                        autoComplete="off"
+                                        autoCorrect="off"
+                                        spellCheck="false"
+                                    />
+                                    <button className={groupStyles.addFriendsButton} type={"submit"}>person_add</button>
+                                </form>
+                            </div>
+                            <div className={groupStyles.groupTabSwitchContainer} style={{ width: `${menuState ? '0px' : '100%'}` }}>
+                                <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'current'}
+                                    onClick={() => setFriendsTabState('current')}
+                                >Current</button>
+                                <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'pending'}
+                                    onClick={() => setFriendsTabState('pending')}
+                                >Pending</button>
+                                <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'outgoing'}
+                                    onClick={() => setFriendsTabState('outgoing')}
+                                >Outgoing</button>
+                            </div>
+                            <div className={groupStyles.friendsContainer}>
+                                {
+                                    friendsTabState.toLowerCase() == 'current' ?
+                                        user.friends.current.length > 0 ?
+                                            user.friends.current.map(friend => {
+                                                return (
+                                                    // friend container
+                                                    <CurrentFriend key={friend.uid} friend={friend} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                )
+                                            }) :
+                                            null
+                                        :
+                                        friendsTabState.toLowerCase() == 'pending' ?
+                                            user.friends.pending.length > 0 ?
+                                                user.friends.pending.map(friend => {
+                                                    return (
+                                                        // friend container
+                                                        <PendingFriend key={friend.uid} friend={friend} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                    )
+                                                }) :
+                                                null
+                                            :
+                                            friendsTabState.toLowerCase() == 'outgoing' ?
+                                                user.friends.outgoing.length > 0 ?
+                                                    user.friends.outgoing.map((friend) => {
+                                                        return (
+                                                            // friend container
+                                                            <OutgoingFriend key={friend.uid} friend={friend} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                        )
+                                                    }) :
+                                                    null
+                                                :
+                                                null
+                                }
+                            </div>
+                        </div>
+                }
                 {
                     groups.length > 0 ?
                         <div style={{ display: `${menuState ? 'none' : 'flex'}`, justifyContent: 'center' }}>
@@ -147,6 +287,42 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, user, socket,
         </div>
     );
 }
+export function CurrentFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
+    const [contextMenu, setContextMenu] = ctxMenu
+    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
+    const [contextMenuData, setContextMenuData] = ctxMenuData
+
+    return (
+        <div className={friendStyles.currentFriendContainer} data-contexttype={'FRIEND'}
+            onContextMenu={(e) => {
+                e.preventDefault()
+                const path = e.nativeEvent.composedPath()
+                const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+                const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+                if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
+
+                const clientX = e.clientX
+                const clientY = e.clientY
+
+                setContextMenu(contextType)
+                setContextMenuPos({ x: clientX, y: clientY })
+                setContextMenuData({ friendData: friend })
+            }}
+        >
+            {friend.username}
+        </div>
+    )
+}
+export function PendingFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
+    return <>{friend.username}</>
+}
+
+export function OutgoingFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
+    return <>{friend.username}</>
+}
+
+
 export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
     const [contextMenu, setContextMenu] = ctxMenu
     const [contextMenuPos, setContextMenuPos] = ctxMenuPos
@@ -222,16 +398,15 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 
     const [messages, _setMessages] = msgsState // messages of each group that have been loaded. Stored in parent component to avoid losing data when navigating between groups
     const messagesRef = useRef(messages)
-
     const setMessages = (msgs) => {
         messagesRef.current = msgs
         _setMessages(msgs)
     }
-
     function scrollMessagesDiv(pos = null) {
         const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
         msgsContainer.scrollTo(null, pos ? pos : msgsContainer.scrollHeight)
     }
+
 
     useEffect(async () => {
         if (!messages.find(grp => grp.id === currentGroup.id) && !msgsLoading.includes(currentGroup.id)) {
@@ -338,8 +513,93 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         })
     }, [messages.length > 0])
 
+    function handleFileInput(inputFiles) {
+        const files = [...attachedFiles, ...inputFiles]
+        const totalSizeBytes = (files.reduce((acc, file) => {
+            return acc + file.size
+        }, 0))
+        if (totalSizeBytes > MAX_FILE_SIZE_BYTES) {
+            setNotificationState({ state: 'error', data: { message: `Max File Size is ${formatBytes(MAX_FILE_SIZE_BYTES)}, your file(s) total ${formatBytes(totalSizeBytes)}` } })
+            setAttachedFiles([])
+        } else if (files.length > 5) {
+            setNotificationState({ state: 'error', data: { message: `Max File Count is 5, your file(s) total ${files.length}` } })
+        } else {
+            function readFileAsText(file) {
+                return new Promise(function (resolve, reject) {
+                    let fr = new FileReader();
+                    fr.onloadend = function () {
+                        resolve(fr.result);
+                    };
+                    fr.onerror = function () {
+                        reject(fr);
+                    };
+                    fr.readAsDataURL(file);
+                });
+            }
+            const readers = []
+            const unreadFiles = [...inputFiles]
+            for (let i = 0; i < files.length; i++) {
+                readers.push(readFileAsText(unreadFiles[i]))
+            }
+
+            Promise.allSettled(readers).then(async (results) => {
+                for (let i = 0; i < results.length; i++) {
+                    if (results[i].status === 'fulfilled') {
+                        setAttachedFiles([...attachedFilesRef.current, { base64: results[i].value, name: unreadFiles[i].name, mimeType: unreadFiles[i].type, blob: unreadFiles[i] }])
+                    }
+                }
+            })
+        }
+    }
+
+    // drag and drop states
+    const [dragState, setDragState] = useState(false)
+    const [dragTransitioning, setDragTransitioning] = useState(false)
+    const [dragFileCount, setDragFileCount] = useState(['0'])
+    const mainChatRef = useRef(null)
+
     return (
-        <div className={chatStyles.main}>
+        <div className={chatStyles.main} ref={mainChatRef}
+            onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation()
+
+                if (!e.dataTransfer.types.includes('Files')) return
+
+                setDragTransitioning(true)
+                setTimeout(function () {
+                    setDragTransitioning(false)
+                    setDragState(true)
+                }, 1);
+            }}
+            onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation()
+
+                if (!dragTransitioning) {
+                    setDragState(false)
+                }
+
+                if (!e.dataTransfer.types.includes('Files')) return
+            }}
+            onDragOver={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (e.dataTransfer.items.length !== dragFileCount.length) setDragFileCount(new Array(e.dataTransfer.items.length).fill('0'))
+            }}
+            onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation()
+                setDragState(false)
+
+                if (e.dataTransfer.items) {
+                    const items = [...e.dataTransfer.items]
+                    handleFileInput(items.map(i => {
+                        if (i.getAsFile() && i.kind === 'file') return i.getAsFile()
+                    }))
+                }
+            }}
+        >
             {/* messages display */}
             <div className={chatStyles.messages}
                 // scrolling for loading more messages
@@ -394,7 +654,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             {/* message part */}
             {/* images */}
             {
-                attachedFiles.length > 0 ?
+                attachedFiles.length > 0 || dragState ?
                     <div className={fileStyles.attachedFilesContainer}>
                         {
                             attachedFiles.map((value, index) => {
@@ -406,16 +666,24 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 
                                 value.id = index // set id for each file
 
-                                return <AttachedFileView key={`${index}::${base64}`} id={index} mimeType={mimeType} name={name} fileSize={fileSize} data={base64} attachedFiles={attachedFiles} setAttachedFiles={setAttachedFiles} />
+                                return <AttachedFileView key={`${index}::${base64}`} id={index} mimeType={mimeType} name={name} fileSize={fileSize} data={base64} attachedFiles={attachedFiles} setAttachedFiles={setAttachedFiles} setNotificationState={setNotificationState} />
                             })
+                        }
+                        {
+                            dragState ?
+                                dragFileCount.map((v, i) => {
+                                    return <div key={i} className={`${fileStyles.attachedFileViewContainer} ${fileStyles.attachedFileViewContainerEmpty}`}></div>
+                                })
+                                :
+                                null
                         }
                     </div>
                     : null
             }
             {/* message input */}
             <div className={chatStyles.messageInputContainer}>
-                <form className={chatStyles.messageInputForm} encType={"multipart/form-data"} onSubmit={
-                    async (e) => {
+                <form className={chatStyles.messageInputForm} encType={"multipart/form-data"}
+                    onSubmit={async (e) => {
                         e.preventDefault()
                         const msgInput = document.querySelector('[data-name="content"]')
                         const msgInputContainer = msgInput.parentElement
@@ -454,50 +722,15 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         msgInputContainer.style.height = null
                         msgInputParent.dataset.length = '0'
                         msgInputParent.dataset.overflow = ''
-                    }
-                }>
+                    }}
+                >
                     <div className={chatStyles.messageButtons}>
                         <input data-name={'files'} id={'file-upload'} type={"file"} style={{ display: 'none' }} multiple
                             onInput={(e) => {
-                                const files = [...attachedFiles, ...e.target.files]
-                                const totalSizeBytes = (files.reduce((acc, file) => {
-                                    return acc + file.size
-                                }, 0))
-                                if (totalSizeBytes > MAX_FILE_SIZE_BYTES) {
-                                    setNotificationState({ state: 'error', data: { message: `Max File Size is ${formatBytes(MAX_FILE_SIZE_BYTES)}, your file(s) total ${formatBytes(totalSizeBytes)}` } })
-                                    e.target.value = ''
-                                    setAttachedFiles([])
-                                } else if (files.length > 5) {
-                                    setNotificationState({ state: 'error', data: { message: `Max File Count is 5, your file(s) total ${files.length}` } })
-                                } else {
-                                    function readFileAsText(file) {
-                                        return new Promise(function (resolve, reject) {
-                                            let fr = new FileReader();
-                                            fr.onloadend = function () {
-                                                resolve(fr.result);
-                                            };
-                                            fr.onerror = function () {
-                                                reject(fr);
-                                            };
-                                            fr.readAsDataURL(file);
-                                        });
-                                    }
-                                    const readers = []
-                                    const unreadFiles = [...e.target.files]
-                                    for (let i = 0; i < files.length; i++) {
-                                        readers.push(readFileAsText(unreadFiles[i]))
-                                    }
-
-                                    Promise.allSettled(readers).then(async (results) => {
-                                        for (let i = 0; i < results.length; i++) {
-                                            if (results[i].status === 'fulfilled') {
-                                                setAttachedFiles([...attachedFilesRef.current, { base64: results[i].value, name: unreadFiles[i].name, mimeType: unreadFiles[i].type, blob: unreadFiles[i] }])
-                                                e.target.value = '' // reset file input as all files are in the attachedFiles state
-                                            }
-                                        }
-                                    })
-                                }
-                            }} />
+                                handleFileInput(e.target.files)
+                                e.target.value = '' // reset files in this input so that multiple of the same file can be uploaded and you can upload multiple times
+                            }}
+                        />
                         <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
                             file_upload
                         </label>
@@ -513,6 +746,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                             <div data-name={'content'} className={chatStyles.contentEditableMessageArea} contentEditable={true} role="textbox" data-placeholder={`Message ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
                                 onPaste={(e) => {
                                     e.preventDefault()
+                                    handleFileInput(e.clipboardData.files)
                                     const text = e.clipboardData.getData('text/plain')
                                     document.execCommand('insertText', false, text)
                                     e.target.scrollTop = e.target.scrollHeight * 1000
@@ -573,7 +807,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
         }
     }, [messageEdit])
 
-    function handleContextMenuFile(e, filedata, filename, filesize, mimeType) {
+    function handleContextMenuFile(e, filedata, filename, filesize, mimeType, dimensions) {
         e.preventDefault()
         const path = e.nativeEvent.composedPath()
         const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
@@ -586,7 +820,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
 
         setContextMenu(contextType)
         setContextMenuPos({ x: clientX, y: clientY })
-        setContextMenuData({ filedata, filename, filesize, mimeType })
+        setContextMenuData({ filedata, filename, filesize, mimeType, dimensions })
     }
     function handleContextMenuMessage(e, message, x, y) {
         e.preventDefault()
@@ -621,7 +855,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                             <span className={chatStyles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
                             <span className={chatStyles.messageEdited} title={"This message was edited."}>{message.edited ? '(edited)' : ''}</span>
                         </div>
-                        <span className={chatStyles.messageOptions} data-contexttype="MESSAGE"
+                        <span className={chatStyles.messageOptions} data-contexttype={"MESSAGE"} data-type={'OPTIONS'}
                             onClick={(e) => {
                                 const rect = e.target.getBoundingClientRect()
                                 const clientX = rect.x - 8
@@ -638,7 +872,26 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                 <div className={chatStyles.messageContentMarkdown} data-message-content>{message.message.content}</div>
                             ) :
                                 <div>
-                                    <div className={chatStyles.messageContentEditable} contentEditable data-message-content ref={messageEditDivRef}>
+                                    <div className={chatStyles.messageContentEditable} contentEditable data-message-content ref={messageEditDivRef} suppressContentEditableWarning={true}
+                                    // onInput={(e) => { // TODO: FIX THIS, UNABLE TO GET PROPER CARET POSITION WITH CONTENTEDITABLE BECAUSE MULTIPLE NODES CAN BE CREATED
+                                    //     const caretPos = window.getSelection().anchorOffset
+                                    //     const caretEl = window.getSelection().anchorNode
+
+                                    //     // format text
+                                    //     const text = e.target.innerText
+                                    //     const formattedText = formatMessageInput(text, 100)
+                                    //     e.target.innerHTML = formattedText
+                                    //     // set cursor to last known position
+                                    //     const range = document.createRange()
+                                    //     const sel = window.getSelection()
+
+                                    //     range.setStart(caretEl, caretPos)
+                                    //     range.collapse(true)
+
+                                    //     sel.removeAllRanges()
+                                    //     sel.addRange(range)
+                                    // }}
+                                    >
                                         {message.message.content}
                                     </div>
                                     <div className={chatStyles.messageContentEditableInfo}>
@@ -683,7 +936,6 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                 const mimeType = fileInfo.mimeType
                                 const generalType = mimeType.split('/')[0]
                                 const specificType = mimeType.split('/')[1]
-
                                 switch (true) {
                                     case generalType === 'image' && specificType === 'apng':
                                     case generalType === 'image' && specificType === 'avif':
@@ -692,7 +944,6 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                     case generalType === 'image' && specificType === 'svg':
                                     case generalType === 'image' && specificType === 'webp':
                                     case generalType === 'image' && specificType === 'gif':
-                                        // find aspect ratio of image here and add it to the contextmenu listener below
                                         return <ImageFileView
                                             key={`${i} ${data}`}
                                             alt={name}
@@ -700,7 +951,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                             name={name}
                                             mimeType={mimeType}
                                             fileSize={fileSize}
-                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                            onContextMenu={(e, dimensions) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType, dimensions)}
                                         />
                                     case generalType === 'audio' && specificType === 'ogg':
                                     case generalType === 'audio' && specificType === 'mp3':
@@ -724,7 +975,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                             mimeType={mimeType}
                                             fileSize={fileSize}
                                             data={`data:${mimeType};base64,${data}`}
-                                            onContextMenu={(e) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType)}
+                                            onContextMenu={(e, dimensions) => handleContextMenuFile(e, `data:${mimeType};base64,${data}`, name, fileSize, mimeType, dimensions)}
                                         />
                                     case generalType === 'text':
                                         return <TextFileView
@@ -792,6 +1043,7 @@ export function VideoFileView({ data, name, mimeType, fileSize, onContextMenu })
     const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
     const [duration, _setDuration] = useState(0) // in seconds
     const [pbSpeedMenuState, setPbSpeedMenuState] = useState(false)
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
 
     const mutedRef = useRef(muted)
     const volumeRef = useRef(volume)
@@ -873,6 +1125,12 @@ export function VideoFileView({ data, name, mimeType, fileSize, onContextMenu })
     }, [playbackSpeed])
 
     useEffect(() => {
+        const video = document.createElement('video')
+        video.src = data
+        video.onloadedmetadata = () => {
+            setDimensions({ width: video.videoWidth, height: video.videoHeight })
+        }
+
         function handleClickEvent(e) {
             if (!e.composedPath().includes(pbSpeedElementRef.current)) {
                 setPbSpeedMenuState(false)
@@ -886,7 +1144,11 @@ export function VideoFileView({ data, name, mimeType, fileSize, onContextMenu })
         }
     }, [])
     return (
-        <div data-contexttype="FILE" className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef} onContextMenu={onContextMenu}>
+        <div data-contexttype="FILE" className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef}
+            onContextMenu={(e) => {
+                onContextMenu(e, dimensions)
+            }}
+        >
             <div className={videoStyles.videoInformationContainer}>
                 <div className={videoStyles.videoInformation}>
                     <div className={videoStyles.videoHeader}>
@@ -1127,6 +1389,7 @@ export function AudioFileView({ data, name, mimeType, fileSize, onContextMenu })
 export function ImageFileView({ data, name, mimeType, fileSize, onContextMenu }) {
     const MAX_DIMENSION = 300
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+    const [intrinsicDimensions, setIntrinsicDimensions] = useState({ width: 0, height: 0 })
 
     useEffect(() => {
         const img = new Image()
@@ -1145,6 +1408,7 @@ export function ImageFileView({ data, name, mimeType, fileSize, onContextMenu })
             } else {
                 setDimensions({ width: img.width, height: img.height })
             }
+            setIntrinsicDimensions({ width: img.width, height: img.height })
         }
     }, [])
 
@@ -1154,7 +1418,7 @@ export function ImageFileView({ data, name, mimeType, fileSize, onContextMenu })
         alt={name}
         src={`data:${mimeType};base64,${data}`}
         title={name}
-        onContextMenu={onContextMenu}
+        onContextMenu={(e) => { onContextMenu(e, intrinsicDimensions) }}
         width={dimensions.width}
         height={dimensions.height}
     />
@@ -1179,7 +1443,7 @@ export function DefaultFileView({ data, name, mimeType, fileSize, onContextMenu 
 
     )
 }
-export function AttachedFileView({ id, data, name, mimeType, fileSize, onContextMenu, attachedFiles, setAttachedFiles }) {
+export function AttachedFileView({ id, data, name, mimeType, fileSize, onContextMenu, attachedFiles, setAttachedFiles, setNotificationState }) {
     const generalType = mimeType.split('/')[0]
     const specificType = mimeType.split('/')[1]
 
@@ -1198,6 +1462,7 @@ export function AttachedFileView({ id, data, name, mimeType, fileSize, onContext
                 <div className={`${fileStyles.removeAttachmentButton} ${fileStyles.attachmentButton}`}
                     onClick={() => {
                         setAttachedFiles(attachedFiles.filter(file => file.name != name))
+                        setNotificationState({ state: 'success', data: { message: `File "${shortenFileName(name, 15)}" removed!` } })
                     }}
                 >delete</div>
             </div>
@@ -1243,7 +1508,7 @@ export function AttachedFileView({ id, data, name, mimeType, fileSize, onContext
                             const formData = new FormData(e.target)
                             let newName = formData.get('new_attachment_name')
 
-                            if (newName.split('.').pop() !== specificType) {
+                            if (newName.split('.').pop() !== specificType && EXTENSIONS.includes(specificType)) {
                                 newName = newName + '.' + specificType
                             } else if (newName === '' || newName === name) {
                                 return setEditState(false)
@@ -1256,7 +1521,24 @@ export function AttachedFileView({ id, data, name, mimeType, fileSize, onContext
                             }))
                             return setEditState(false)
                         }}>
-                        <input type="text" name="new_attachment_name" className={fileStyles.editAttachmentInput} defaultValue={name} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+                        <input
+                            type="text"
+                            name="new_attachment_name"
+                            className={fileStyles.editAttachmentInput}
+                            defaultValue={name}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="off"
+                            spellCheck="false"
+                            onInput={(e) => {
+                                e.preventDefault()
+                                if (e.target.value.length > MAX_FILE_NAME_LEN) {
+                                    e.target.value = e.target.value.slice(0, MAX_FILE_NAME_LEN)
+                                    setNotificationState({ state: 'warning', data: { message: 'Your file name is too long!' } })
+                                    return false
+                                }
+                            }}
+                        />
                         <button type="submit" className={fileStyles.editAttachmentSubmit}>check_circle</button>
                     </form>
                     :
@@ -1301,6 +1583,14 @@ export function ContextMenu({ x, y, type, data, currentGroup, user, msgsState, s
                 return (
                     <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
                         <UserContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
+                    </div>
+                )
+            }
+        case "FRIEND":
+            {
+                return (
+                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
+                        <FriendContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
                     </div>
                 )
             }
@@ -1429,19 +1719,32 @@ export function FileContextMenu({ group, user, data, setNotificationState }) {
     const fileName = data.filename
     const fileSize = data.filesize
     const fileMimeType = data.mimeType
+    const fileDimensions = data.dimensions
+    let fileAspectRatio = null
     const generalType = fileMimeType.split('/')[0]
+
+    // calculate aspect ratio with gcd
+    if (fileDimensions) {
+        const r = gcd(fileDimensions.width, fileDimensions.height)
+        fileAspectRatio = `${fileDimensions.width / r}:${fileDimensions.height / r}`
+    }
 
     return (
         <ul className={contextMenuStyles.contextMenuContainer}>
             <li className={contextMenuStyles.contextMenuFileInfo}>
-                <div title={fileName}>{fileName}</div>
+                <div title={`File Name: ${fileName}`}>{fileName}</div>
                 <div className={contextMenuStyles.contextMenuItemText}>
-                    <div title={fileSize}>{fileSize}</div>
-                    <div title={fileMimeType}>{fileMimeType}</div>
+                    <div title={`File Size: ${fileSize}`}>{fileSize}</div>
+                    <div title={`File Type: ${fileMimeType}`}>{fileMimeType}</div>
                 </div>
-                <div className={contextMenuStyles.contextMenuItemText}>
-                    <div title={fileSize}>{fileSize}</div>
-                </div>
+                {
+                    fileAspectRatio ?
+                        <div className={contextMenuStyles.contextMenuItemText}>
+                            <div title={`Intrinsic Aspect Ratio: ${fileAspectRatio}`}>{fileAspectRatio}</div>
+                            <div title={`Intrinsic Dimensions: ${fileDimensions.width}x${fileDimensions.height}`}>{`${fileDimensions.width}x${fileDimensions.height}`}</div>
+                        </div>
+                        : null
+                }
             </li>
             <li className={contextMenuStyles.contextMenuItem}
                 onClick={() => {
@@ -1519,6 +1822,9 @@ export function UserContextMenu({ group, user, msgsState, data }) {
 export function GroupContextMenu({ group, user, msgsState, data }) {
     return <></>
 }
+export function FriendContextMenu({ group, user, msgsState, data }) { // remove friend,...
+    return <></>
+}
 
 // Modals
 export function MiniNotificationModal({ state, setState }) { // click to close, status will determine icon and color, message will be displayed
@@ -1584,7 +1890,7 @@ export function PageLoading() {
         </div>
     )
 }
-export function AccountDropdown({ signOut }) {
+export function AccountDropdown({ signOut, username }) {
     const [open, setOpen] = useState(false)
     const [clickOpen, setClickOpen] = useState(false)
     const [signOutLoading, setSignOutLoading] = useState(false)
@@ -1602,10 +1908,10 @@ export function AccountDropdown({ signOut }) {
                 style={{ borderRadius: open ? '6px 6px 0 0' : '6px' }}
                 onClick={() => setClickOpen(!clickOpen)}
             >
-                <div className={homeStyles.dropdownButtonText}>Manage Account</div>
+                <div className={homeStyles.dropdownButtonText}>{shortenName(username, 25)}</div>
                 <div className={homeStyles.dropdownButtonIcon}>account_circle</div>
             </div>
-            <ul className={homeStyles.dropdown} style={{ top: open ? '44px' : '0px', opacity: open ? '1' : '0', pointerEvents: open ? 'all' : 'none' }}>
+            <ul className={homeStyles.dropdown} style={{ top: open ? '44px' : '40px', opacity: open ? '1' : '0', pointerEvents: open ? 'all' : 'none' }}>
                 <li className={homeStyles.dropdownItem} onClick={() => window.location = '/account/myaccount'}>
                     <div className={homeStyles.dropdownItemText}>Settings</div>
                     <div className={homeStyles.dropdownItemIcon}>settings</div>
