@@ -91,7 +91,8 @@ export function shortenName(name, max = 15) {
 export function shortenFileName(name, max = 15) {
     if (name.length > max) {
         const type = name.split('.').pop()
-        return name.substring(0, max - 3) + '... .' + type
+
+        return name.slice(0, max - 3) + '...' + (type.length > 5 ? '' : ' .' + type)
     }
     return name
 }

@@ -1445,9 +1445,7 @@ export function DefaultFileView({ data, name, mimeType, fileSize, onContextMenu 
 }
 export function AttachedFileView({ id, data, name, mimeType, fileSize, onContextMenu, attachedFiles, setAttachedFiles, setNotificationState }) {
     const generalType = mimeType.split('/')[0]
-    const specificType = mimeType.split('/')[1]
-
-    const shortenedName = shortenFileName(name, 30)
+    const specificType = mimeType.split('/')[1] 
 
     const [editState, setEditState] = useState(false)
 
@@ -1543,7 +1541,7 @@ export function AttachedFileView({ id, data, name, mimeType, fileSize, onContext
                     </form>
                     :
                     <div className={fileStyles.attachedFileName}>
-                        {shortenedName}
+                        {shortenFileName(name, 30)}
                     </div>
             }
         </div>
