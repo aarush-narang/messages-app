@@ -53,7 +53,7 @@ export default function Home({ data, csrfToken }) {
                 _setNotificationModalState({ state: `null ${notificationModalState.state}`, data: notificationModalState.data })
                 setTimeout(() => {
                     _setNotificationModalState(newData)
-                }, 400);
+                }, 450);
             } else {
                 _setNotificationModalState(newData)
             }
