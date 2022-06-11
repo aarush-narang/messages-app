@@ -305,9 +305,9 @@ const ioHandler = (req, res) => {
 
                         if (friend) {
                             if (sender.friends.outgoing.includes(friend.uid)) {
-                                cb({ error: `You already have a request outgoing with @${friend.username}` })
+                                cb({ error: `You already have a request outgoing with @${friend.username}!` })
                             } else if (sender.friends.current.includes(friend.uid)) {
-                                cb({ error: `You are already friends with @${friend.username}` })
+                                cb({ error: `You are already friends with @${friend.username}!` })
                             } else if (sender.friends.pending.includes(friend.uid)) {
                                 const newDataSender = {
                                     current: sender.friends.current.concat([friend.uid]),
@@ -337,11 +337,11 @@ const ioHandler = (req, res) => {
                                 io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
                                 io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
 
-                                cb({ success: `You are now friends with @${friend.username}` })
+                                cb({ success: `You are now friends with @${friend.username}!` })
                             } else if (friend.friends.pending.length > MAX_PENDING_FRIEND_REQUESTS) {
                                 cb({ error: `@${friend.username} has too many pending friend requests` })
                             } else if (sender.friends.outgoing.length > MAX_OUTGOING_FRIEND_REQUESTS) {
-                                cb({ error: `You have too many outgoing friend requests` })
+                                cb({ error: `You have too many outgoing friend requests.` })
                             } else {
                                 const newDataSender = {
                                     current: sender.friends.current,
@@ -371,10 +371,10 @@ const ioHandler = (req, res) => {
                                 io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
                                 io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
 
-                                cb({ success: `Friend request sent to @${friend.username}` })
+                                cb({ success: `Friend request sent to @${friend.username}!` })
                             }
                         } else {
-                            cb({ error: 'User does not exist' })
+                            cb({ error: 'User does not exist.' })
                         }
                     }
                 } catch (error) {
@@ -383,10 +383,132 @@ const ioHandler = (req, res) => {
                 }
             })
             socket.on('friendRequestManage-server', async (data, cb) => {
+                try {
+                    const token = data.accessToken
+                    const user = decodeJWT(token)
+                    if (!user) return cb(null)
+                    else {
+                        const friendUser = data.friend
+                        const friend = await QueryUser({ user: friendUser })
+                        const sender = await QueryUser({ user: { token: user.token } })
 
+                        const status = data.status
+
+                        if (status.state == 'pending' && status.action == 'accept') {
+                            const newDataSender = {
+                                current: sender.friends.current.concat([friend.uid]),
+                                outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
+                                pending: sender.friends.pending.filter(uid => uid != friend.uid)
+                            }
+                            const newDataFriend = {
+                                current: friend.friends.current.concat([sender.uid]),
+                                outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
+                                pending: friend.friends.pending.filter(uid => uid != sender.uid)
+                            }
+
+                            await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
+                            await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
+
+                            const newDataSenderObject = {
+                                current: await replaceFriendRequestIDsWithObject(newDataSender.current),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
+                                pending: await replaceFriendRequestIDsWithObject(newDataSender.pending)
+                            }
+                            const newDataFriendObject = {
+                                current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
+                                pending: await replaceFriendRequestIDsWithObject(newDataFriend.pending)
+                            }
+
+                            io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
+                            io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
+                        } else if ((status.state == 'pending' && status.action == 'decline') || (status.state == 'outgoing' && status.action == 'cancel')) {
+                            const newDataSender = {
+                                current: sender.friends.current,
+                                outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
+                                pending: sender.friends.pending.filter(uid => uid != friend.uid)
+                            }
+                            const newDataFriend = {
+                                current: friend.friends.current,
+                                outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
+                                pending: friend.friends.pending.filter(uid => uid != sender.uid)
+                            }
+
+                            await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
+                            await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
+
+                            const newDataSenderObject = {
+                                current: await replaceFriendRequestIDsWithObject(newDataSender.current),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
+                                pending: await replaceFriendRequestIDsWithObject(newDataSender.pending)
+                            }
+                            const newDataFriendObject = {
+                                current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
+                                pending: await replaceFriendRequestIDsWithObject(newDataFriend.pending)
+                            }
+
+                            io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
+                            io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
+                        }
+
+                        if (status.state == 'pending' && status.action == 'accept') {
+                            cb({ success: `You are now friends with @${friend.username}!` })
+                        } else if (status.state == 'pending' && status.action == 'decline') {
+                            cb({ success: `Friend request from @${friend.username} declined.` })
+                        } else if (status.state == 'outgoing' && status.action == 'cancel') {
+                            cb({ success: `Friend request to @${friend.username} cancelled.` })
+                        }
+                    }
+                } catch (error) {
+                    console.log(error)
+                    cb({ error: 'Oops! There was an error. Try again later.' })
+                }
             })
-            socket.on('friendDelete-server', async (data, cb) => {
+            socket.on('friendRemove-server', async (data, cb) => {
+                try {
+                    const token = data.accessToken
+                    const user = decodeJWT(token)
+                    if (!user) return cb(null)
+                    else {
+                        const friendUser = data.friend
+                        const friend = await QueryUser({ user: friendUser })
+                        const sender = await QueryUser({ user: { token: user.token } })
 
+                        const newDataSender = {
+                            current: sender.friends.current.filter(uid => uid != friend.uid),
+                            outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
+                            pending: sender.friends.pending.filter(uid => uid != friend.uid)
+                        }
+                        const newDataFriend = {
+                            current: friend.friends.current.filter(uid => uid != sender.uid),
+                            outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
+                            pending: friend.friends.pending.filter(uid => uid != sender.uid)
+                        }
+
+                        await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
+                        await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
+
+                        const newDataSenderObject = {
+                            current: await replaceFriendRequestIDsWithObject(newDataSender.current),
+                            outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
+                            pending: await replaceFriendRequestIDsWithObject(newDataSender.pending)
+                        }
+                        const newDataFriendObject = {
+                            current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
+                            outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
+                            pending: await replaceFriendRequestIDsWithObject(newDataFriend.pending)
+                        }
+
+                        io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
+                        io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
+
+                        cb({ success: `You are no longer friends with @${friend.username}!` })
+                    }
+                } catch (error) {
+                    console.log(error)
+                    cb({ error: 'Oops! There was an error. Try again later.' })
+                }
             })
 
             // group events

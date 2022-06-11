@@ -1,7 +1,9 @@
 import Head from "next/head";
 import { csrf } from "../../lib/middleware";
 import { FormPagesHeader, HomeHeader } from "../components/header";
-import { GroupsComponent, ChatComponent, PageLoading, ContextMenu, FullNotificationModal, MiniNotificationModal, JoinGroupModal, FullModalWrapper } from "../components/chatComponents";
+import { GroupsComponent, ChatComponent, PageLoading } from "../components/chatComponents";
+import { FullModalWrapper, MiniNotificationModal } from '../components/modalComponents'
+import { ContextMenu } from '../components/contextMenuComponents'
 import styles from "../../styles/Home.module.css";
 import * as cookie from 'cookie'
 import { useRouter } from 'next/router'

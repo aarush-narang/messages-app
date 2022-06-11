@@ -1,17 +1,13 @@
 // Styles
-import homeStyles from "../../styles/Home.module.css";
 import chatStyles from "../../styles/ChatStyles/ChatComponentStyles.module.css";
 import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css";
 import friendStyles from "../../styles/ChatStyles/FriendComponentsStyles.module.css";
-import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
-import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
 import fileStyles from "../../styles/FileViews/FileViews.module.css";
-import contextMenuStyles from "../../styles/ChatStyles/ContextMenuStyles.module.css";
-import modalStyles from "../../styles/ChatStyles/ModalComponentStyles.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef } from "react";
 import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, formatDuration, gcd, formatMessageInput } from "./util";
 import { Spinner } from "./formComponents";
+import { AttachedFileView, AudioFileView, DefaultFileView, ImageFileView, TextFileView, VideoFileView } from './fileViewComponents'
 // Util Packages
 import jsCookie from "js-cookie";
 import moment from "moment";
@@ -19,35 +15,6 @@ import moment from "moment";
 const SPINNER_COLOR = '#2e8283'
 const MAX_FILE_SIZE_BYTES = 50 * (1024 * 1024); // 50 MB in bytes
 const MAX_MESSAGE_LEN = 6000
-const MAX_FILE_NAME_LEN = 100
-const EXTENSIONS = [
-    'apng',
-    'avif',
-    'jpeg',
-    'png',
-    'svg',
-    'webp',
-    'gif',
-    'ogg',
-    'mp3',
-    'wav',
-    'mpeg',
-    'mp4',
-    'webm',
-    'pdf',
-    'doc',
-    'docx',
-    'xls',
-    'xlsx',
-    'ppt',
-    'pptx',
-    'text',
-    'rtf',
-    'csv',
-    'zip',
-    'rar',
-    '7z',
-]
 
 // Main Components For Chat
 export function GroupsComponent({ groups, csrfToken, currentGroup, userState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
@@ -67,6 +34,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
     // Tab States
     const [tabState, setTabState] = useState('groups'); // groups or friends
     const [friendsTabState, setFriendsTabState] = useState('current'); // current, pending, or outgoing
+    const addFriendsTxtboxRef = useRef(null);
 
     useEffect(() => {
         setMenuState(window.innerWidth < 900)
@@ -153,7 +121,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                 overflow: 'hidden',
             }}
         >
-            <div className={groupStyles.groupsContainer} style={{ opacity: `${menuState ? '0' : '1'}` }}>
+            <div className={groupStyles.groupsContainer} style={{ opacity: `${menuState ? '0' : '1'}`, gridTemplateRows: tabState.toLowerCase() == 'groups' ? '40px 1fr 100px' : '40px 38px 40px 1fr 100px' }}>
                 <div className={groupStyles.groupTabSwitchContainer} style={{ width: `${menuState ? '0px' : '100%'}` }}>
                     <button className={groupStyles.groupTabSwitch} data-selected={tabState.toLowerCase() == 'groups'}
                         onClick={() => setTabState('groups')}
@@ -184,7 +152,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                             }
                         </div>
                         :
-                        <div className={groupStyles.friends} style={{ opacity: menuState ? '0' : '1', width: `${menuState ? '0px' : '100%'}` }}>
+                        <>
                             <div className={groupStyles.friendsHeader}>
                                 <form className={groupStyles.friendsHeaderForm}
                                     onSubmit={(e) => {
@@ -192,6 +160,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                                         const formData = new FormData(e.target)
                                         const friend = formData.get('friends_search')
                                         e.target.reset()
+                                        addFriendsTxtboxRef.current.focus()
                                         if (friend.length == 0) return
                                         if (friend.slice(1) == user.username || friend == user.uid) return setNotificationState({ state: 'error', data: { message: 'You cannot add yourself' } })
 
@@ -217,6 +186,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                                         autoComplete="off"
                                         autoCorrect="off"
                                         spellCheck="false"
+                                        ref={addFriendsTxtboxRef}
                                     />
                                     <button className={groupStyles.addFriendsButton} type={"submit"}>person_add</button>
                                 </form>
@@ -232,42 +202,70 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                                     onClick={() => setFriendsTabState('outgoing')}
                                 >Outgoing</button>
                             </div>
-                            <div className={groupStyles.friendsContainer}>
+                            <div className={groupStyles.friends} style={{ opacity: menuState ? '0' : '1', width: `${menuState ? '0px' : '100%'}` }}>
+
+                                {/* <div className={groupStyles.friendsContainer}> */}
                                 {
                                     friendsTabState.toLowerCase() == 'current' ?
                                         user.friends.current.length > 0 ?
                                             user.friends.current.map(friend => {
                                                 return (
-                                                    // friend container
-                                                    <CurrentFriend key={friend.uid} friend={friend} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                    <CurrentFriend
+                                                        key={friend.uid}
+                                                        friend={friend}
+                                                        groups={groups}
+                                                        socket={socket}
+                                                        setNotificationState={setNotificationState}
+                                                    />
                                                 )
                                             }) :
-                                            null
+                                            <div className={groupStyles.noFriendsContainer}>
+                                                Oh no, you have no friends added! Go to the <a onClick={() => addFriendsTxtboxRef.current.focus()}>textbox</a> above and add somebody!
+                                            </div>
                                         :
                                         friendsTabState.toLowerCase() == 'pending' ?
                                             user.friends.pending.length > 0 ?
                                                 user.friends.pending.map(friend => {
                                                     return (
                                                         // friend container
-                                                        <PendingFriend key={friend.uid} friend={friend} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                        <PendingFriend
+                                                            key={friend.uid}
+                                                            friend={friend}
+                                                            groups={groups}
+                                                            socket={socket}
+                                                            currentGroup={currentGroup}
+                                                            setNotificationState={setNotificationState}
+                                                        />
                                                     )
                                                 }) :
-                                                null
+                                                <div className={groupStyles.noFriendsContainer}>
+                                                    You have no pending friend requests!
+                                                </div>
                                             :
                                             friendsTabState.toLowerCase() == 'outgoing' ?
                                                 user.friends.outgoing.length > 0 ?
                                                     user.friends.outgoing.map((friend) => {
                                                         return (
                                                             // friend container
-                                                            <OutgoingFriend key={friend.uid} friend={friend} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                            <OutgoingFriend
+                                                                key={friend.uid}
+                                                                friend={friend}
+                                                                groups={groups}
+                                                                socket={socket}
+                                                                currentGroup={currentGroup}
+                                                                setNotificationState={setNotificationState}
+                                                            />
                                                         )
                                                     }) :
-                                                    null
+                                                    <div className={groupStyles.noFriendsContainer}>
+                                                        You have no outgoing friend requests. Go to the <a onClick={() => addFriendsTxtboxRef.current.focus()}>textbox</a> above and add somebody!
+                                                    </div>
                                                 :
                                                 null
                                 }
+                                {/* </div> */}
                             </div>
-                        </div>
+                        </>
                 }
                 {
                     groups.length > 0 ?
@@ -288,41 +286,163 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
         </div>
     );
 }
-export function CurrentFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
-    const [contextMenu, setContextMenu] = ctxMenu
-    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
-    const [contextMenuData, setContextMenuData] = ctxMenuData
+export function CurrentFriend({ friend, groups, socket, setNotificationState }) {
+    const mutualGroupIcons = groups.filter(group => {
+        if (group.members.includes(friend.uid)) {
+            return {
+                icon: group.icon,
+                name: group.name
+            }
+        }
+    })
+
+    const [confirmRemoveState, setConfirmRemoveState] = useState(false)
 
     return (
-        <div className={friendStyles.currentFriendContainer} data-contexttype={'FRIEND'}
-            onContextMenu={(e) => {
-                e.preventDefault()
-                const path = e.nativeEvent.composedPath()
-                const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
-                const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
-
-                if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
-
-                const clientX = e.clientX
-                const clientY = e.clientY
-
-                setContextMenu(contextType)
-                setContextMenuPos({ x: clientX, y: clientY })
-                setContextMenuData({ friendData: friend })
-            }}
-        >
-            
+        <div className={friendStyles.friendContainer}>
+            <section className={friendStyles.friendSection1}>
+                <img src={friend.icon} alt={`friend.username's avatar`} className={friendStyles.friendIcon} />
+            </section>
+            <section className={friendStyles.friendSection2}>
+                <div className={friendStyles.friendHeader}>
+                    <div className={friendStyles.friendUsername} title={friend.username}>@{shortenName(friend.username, 18)}</div>
+                    <div className={friendStyles.mutualGroups}>
+                        {
+                            mutualGroupIcons.map((group, i) => {
+                                return (
+                                    <img key={i} src={group.icon} title={`Mutual Group "${group.name}" with @${friend.username}`} alt={`Mutual Group "${group.name}" with @${friend.username}`} className={friendStyles.mutualGroupIcon} />
+                                )
+                            })
+                        }
+                    </div>
+                </div>
+                <div className={friendStyles.friendButtons}>
+                    {
+                        confirmRemoveState ?
+                            <div>
+                                Are you sure you want to remove <b>@{friend.username}</b> from your friends?
+                                <div className={friendStyles.friendButtons}>
+                                    <button className={`${friendStyles.friendButton} ${friendStyles.friendAccept}`} title={`Accept @${friend.username}'s friend request`}
+                                        onClick={() => {
+                                            socket.emit('friendRemove-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'remove', state: 'current' } }, (data) => {
+                                                if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
+                                                else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
+                                                else setNotificationState({ state: 'success', data: { message: data.success } })
+                                            })
+                                        }}
+                                    >check_circle</button>
+                                    <button className={`${friendStyles.friendButton} ${friendStyles.friendDecline}`} title={`Decline @${friend.username}'s friend request`}
+                                        onClick={() => {
+                                            setNotificationState({ state: 'warning', data: { message: `Cancelled` } })
+                                            setConfirmRemoveState(false)
+                                        }}
+                                    >cancel</button>
+                                </div>
+                            </div>
+                            :
+                            <button className={`${friendStyles.friendButton} ${friendStyles.friendDecline}`} title={`Remove @${friend.username} from your friends`}
+                                onClick={() => setConfirmRemoveState(true)}
+                            >person_remove</button>
+                    }
+                </div>
+            </section>
         </div>
     )
 }
-export function PendingFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
-    return <>{friend.username}</>
-}
-export function OutgoingFriend({ friend, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
-    return <>{friend.username}</>
-}
+export function PendingFriend({ friend, groups, socket, setNotificationState }) {
+    const mutualGroupIcons = groups.filter(group => {
+        if (group.members.includes(friend.uid)) {
+            return {
+                icon: group.icon,
+                name: group.name
+            }
+        }
+    })
+    return (
+        <div className={friendStyles.friendContainer}>
+            <section className={friendStyles.friendSection1}>
+                <img src={friend.icon} alt={`friend.username's avatar`} className={friendStyles.friendIcon} />
+            </section>
+            <section className={friendStyles.friendSection2}>
+                <div className={friendStyles.friendHeader}>
+                    <div className={friendStyles.friendUsername} title={friend.username}>@{shortenName(friend.username, 18)}</div>
+                    <div className={friendStyles.mutualGroups}>
+                        {
+                            mutualGroupIcons.map((group, i) => {
+                                return (
+                                    <img key={i} src={group.icon} title={`Mutual Group "${group.name}" with @${friend.username}`} alt={`Mutual Group "${group.name}" with @${friend.username}`} className={friendStyles.mutualGroupIcon} />
+                                )
+                            })
+                        }
+                    </div>
+                </div>
+                <div className={friendStyles.friendButtons}>
+                    <button className={`${friendStyles.friendButton} ${friendStyles.friendAccept}`} title={`Accept @${friend.username}'s friend request`}
+                        onClick={() => {
+                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'accept', state: 'pending' } }, (data) => {
+                                if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
+                                else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
+                                else setNotificationState({ state: 'success', data: { message: data.success } })
+                            })
+                        }}
+                    >check_circle</button>
+                    <button className={`${friendStyles.friendButton} ${friendStyles.friendDecline}`} title={`Decline @${friend.username}'s friend request`}
+                        onClick={() => {
+                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'decline', state: 'pending' } }, (data) => {
+                                if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
+                                else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
+                                else setNotificationState({ state: 'success', data: { message: data.success } })
+                            })
+                        }}
+                    >cancel</button>
+                </div>
+            </section>
+        </div>
+    )
 
-
+}
+export function OutgoingFriend({ friend, groups, socket, setNotificationState }) {
+    const mutualGroupIcons = groups.filter(group => {
+        if (group.members.includes(friend.uid)) {
+            return {
+                icon: group.icon,
+                name: group.name
+            }
+        }
+    })
+    return (
+        <div className={friendStyles.friendContainer}>
+            <section className={friendStyles.friendSection1}>
+                <img src={friend.icon} alt={`friend.username's avatar`} className={friendStyles.friendIcon} />
+            </section>
+            <section className={friendStyles.friendSection2}>
+                <div className={friendStyles.friendHeader}>
+                    <div className={friendStyles.friendUsername} title={friend.username}>@{shortenName(friend.username, 18)}</div>
+                    <div className={friendStyles.mutualGroups}>
+                        {
+                            mutualGroupIcons.map((group, i) => {
+                                return (
+                                    <img key={i} src={group.icon} title={`Mutual Group "${group.name}" with @${friend.username}`} alt={`Mutual Group "${group.name}" with @${friend.username}`} className={friendStyles.mutualGroupIcon} />
+                                )
+                            })
+                        }
+                    </div>
+                </div>
+                <div className={friendStyles.friendButtons}>
+                    <button className={`${friendStyles.friendButton} ${friendStyles.friendDecline}`} title={`Cancel your friend request to @${friend.username}`}
+                        onClick={() => {
+                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'cancel', state: 'outgoing' } }, (data) => {
+                                if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
+                                else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
+                                else setNotificationState({ state: 'success', data: { message: data.success } })
+                            })
+                        }}
+                    >cancel</button>
+                </div>
+            </section>
+        </div>
+    )
+}
 export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
     const [contextMenu, setContextMenu] = ctxMenu
     const [contextMenuPos, setContextMenuPos] = ctxMenuPos
@@ -590,7 +710,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
 
                 if (e.dataTransfer.items) {
                     const items = [...e.dataTransfer.items]
-                    handleFileInput(items.map(i => {
+                    handleFileInput(items.filter(i => {
                         if (i.getAsFile() && i.kind === 'file') return i.getAsFile()
                     }))
                 }
@@ -1001,874 +1121,6 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
     )
 }
 
-// Message File Views
-export function TextFileView({ name, mimeType, data, fileSize, onContextMenu }) {
-    const [textFileState, setTextFileState] = useState(false)
-
-    return (
-        <pre data-contexttype="FILE" key={data} wrap={"true"} className={fileStyles.messageFile} onContextMenu={onContextMenu}>
-            <div className={fileStyles.preHeader}>
-                <div className={fileStyles.preTitle}>
-                    <div style={{ fontSize: '15px' }}>{shortenFileName(name, 10)}</div>
-                    <div className={fileStyles.preButtons}>
-                        <div className={fileStyles.preButton} onClick={() => {
-                            setTextFileState(!textFileState)
-                        }}>{textFileState ? 'unfold_less' : 'unfold_more'}</div>
-                        <div className={fileStyles.preButton} onClick={() => downloadBase64File(`data:${mimeType};base64,${data}`, name)}>file_download</div>
-                        <div className={fileStyles.preFileSize}>{fileSize}</div>
-                    </div>
-                </div>
-                <span className={fileStyles.divider}></span>
-            </div>
-            {
-                textFileState ?
-                    Buffer.from(data, 'base64').toString('utf-8') :
-                    null
-            }
-        </pre>
-    )
-}
-export function VideoFileView({ data, name, mimeType, fileSize, onContextMenu }) {
-    const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
-    const [playing, _setPlaying] = useState(false) // true = playing, false = paused
-    const [fullscreen, _setFullscreen] = useState(false) // true = fullscreen, false = not fullscreen
-    const [volume, _setVolume] = useState(1) // 0 to 1
-    const [muted, _setMuted] = useState(true)
-    const [playbackSpeed, _setPlaybackSpeed] = useState('1')
-    const [currentTime, _setCurrentTime] = useState(0) // in seconds
-    const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
-    const [duration, _setDuration] = useState(0) // in seconds
-    const [pbSpeedMenuState, setPbSpeedMenuState] = useState(false)
-    const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
-
-    const mutedRef = useRef(muted)
-    const volumeRef = useRef(volume)
-    const playingRef = useRef(playing)
-    const fullscreenRef = useRef(fullscreen)
-    const playbackSpeedRef = useRef(playbackSpeed)
-    const currentTimeRef = useRef(currentTime)
-    const currentTimeRefInternal = useRef(currentTimeInternal)
-    const durationRef = useRef(duration)
-
-    const setFullscreen = (value) => {
-        fullscreenRef.current = value
-        _setFullscreen(value)
-    }
-    const setMuted = (value) => {
-        mutedRef.current = value
-        _setMuted(value)
-    }
-    const setVolume = (value) => {
-        volumeRef.current = value
-        _setVolume(value)
-    }
-    const setPlaying = (value) => {
-        playingRef.current = value
-        _setPlaying(value)
-    }
-    const setPlaybackSpeed = (value) => {
-        playbackSpeedRef.current = value
-        _setPlaybackSpeed(value)
-    }
-    const setCurrentTime = (value) => {
-        currentTimeRefInternal.current = value
-        currentTimeRef.current = value
-        _setCurrentTime(value)
-    }
-    const setCurrentTimeInternal = (value) => { // changed by video element, uses different state to prevent infinite loop with useEffect below
-        currentTimeRefInternal.current = value
-        currentTimeRef.current = value
-        _setCurrentTimeInternal(value)
-    }
-    const setDuration = (value) => {
-        durationRef.current = value
-        _setDuration(value)
-    }
-
-    const videoRef = useRef(null)
-    const videoContainerRef = useRef(null)
-    const pbSpeedElementRef = useRef(null)
-
-    useEffect(async () => {
-        playing ? await videoRef.current.play() : await videoRef.current.pause()
-    }, [playing])
-    useEffect(() => {
-        if (document.fullscreenElement == null && fullscreenRef.current) {
-            videoContainerRef.current.requestFullscreen()
-        } else if (document.fullscreenElement) {
-            document.exitFullscreen()
-            setFullscreen(false)
-        }
-
-        return () => {
-            if (document.fullscreenElement) {
-                document.exitFullscreen()
-                setFullscreen(false)
-            }
-        }
-    }, [fullscreen])
-    useEffect(() => {
-        videoRef.current.volume = volume
-    }, [volume])
-    useEffect(() => {
-        videoRef.current.muted = muted
-    }, [muted])
-    useEffect(() => {
-        videoRef.current.currentTime = currentTime
-    }, [currentTime])
-    useEffect(() => {
-        videoRef.current.playbackRate = parseFloat(playbackSpeed)
-    }, [playbackSpeed])
-
-    useEffect(() => {
-        const video = document.createElement('video')
-        video.src = data
-        video.onloadedmetadata = () => {
-            setDimensions({ width: video.videoWidth, height: video.videoHeight })
-        }
-
-        function handleClickEvent(e) {
-            if (!e.composedPath().includes(pbSpeedElementRef.current)) {
-                setPbSpeedMenuState(false)
-            }
-        }
-
-        document.addEventListener('click', handleClickEvent)
-
-        return () => { // cleanup event listeners
-            document.removeEventListener('click', handleClickEvent)
-        }
-    }, [])
-    return (
-        <div data-contexttype="FILE" className={videoStyles.videoContainer} data-playing={playing} data-fullscreen={fullscreen} ref={videoContainerRef}
-            onContextMenu={(e) => {
-                onContextMenu(e, dimensions)
-            }}
-        >
-            <div className={videoStyles.videoInformationContainer}>
-                <div className={videoStyles.videoInformation}>
-                    <div className={videoStyles.videoHeader}>
-                        <div className={videoStyles.videoFileName} title={name}>{shortenFileName(name, 20)}</div>
-                        <div className={videoStyles.videoFileSize} title={fileSize}>{fileSize}</div>
-                    </div>
-                    <div className={videoStyles.videoDownload} title={`Download ${name}`} onClick={() => downloadBase64File(data, name)}>file_download</div>
-                </div>
-            </div>
-            <div className={videoStyles.videoControlsContainer}>
-                <div className={videoStyles.timelineContainer}>
-                    <input className={videoStyles.timeline} step={'any'} type="range" min="0" max={durationRef.current} value={currentTimeRef.current} onChange={(e) => setCurrentTime(e.target.value)} />
-                </div>
-                <div className={videoStyles.controls}>
-                    <button className={videoStyles.playPauseBtn} onClick={() => setPlaying(!playing)}>
-                        {
-                            playing ?
-                                <svg viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M14,19H18V5H14M6,19H10V5H6V19Z" />
-                                </svg> :
-                                <svg viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z" />
-                                </svg>
-                        }
-                    </button>
-                    <div className={videoStyles.volumeContainer}>
-                        <button className={videoStyles.muteBtn} onClick={() => setMuted(!muted)}>
-                            {
-                                muted || volume == 0 ?
-                                    <svg viewBox="0 0 24 24">
-                                        <path fill="currentColor" d="M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z" />
-                                    </svg> :
-                                    (
-                                        volume > .5 ?
-                                            <svg viewBox="0 0 24 24">
-                                                <path fill="currentColor" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z" />
-                                            </svg> :
-                                            <svg viewBox="0 0 24 24">
-                                                <path fill="currentColor" d="M5,9V15H9L14,20V4L9,9M18.5,12C18.5,10.23 17.5,8.71 16,7.97V16C17.5,15.29 18.5,13.76 18.5,12Z" />
-                                            </svg>
-                                    )
-                            }
-                        </button>
-                        <input className={videoStyles.volumeSlider} type="range" min="0" max="1" step="any" defaultValue={1} onInput={(e) => {
-                            setVolume(e.target.value)
-                            if (muted) setMuted(false)
-                        }} />
-                    </div>
-                    <div className={videoStyles.durationContainer}>
-                        <div className={videoStyles.currentTime}>{formatDuration(currentTimeRef.current)}</div>
-                        /
-                        <div className={videoStyles.totalTime}>{formatDuration(duration)}</div>
-                    </div>
-                    <div ref={pbSpeedElementRef} className={videoStyles.playBackSpeedContainer} onClick={
-                        () => setPbSpeedMenuState(!pbSpeedMenuState)
-                    }>
-                        {/* show menu of all playback speeds and highlight the one that is currently selected */}
-                        <ul className={videoStyles.playBackSpeeds} data-open={pbSpeedMenuState}>
-                            {
-                                PLAYBACK_SPEEDS.map(speed => {
-                                    return <li key={speed} data-current={speed == playbackSpeedRef.current} className={videoStyles.playBackSpeed} onClick={() => setPlaybackSpeed(speed)}>{speed}x</li>
-                                })
-                            }
-                        </ul>
-                        <div className={videoStyles.currentPlayBackSpeed}>{playbackSpeed}x</div>
-                    </div>
-                    <button className={videoStyles.fullScreenBtn} onClick={(e) => setFullscreen(!fullscreen)}>
-                        {
-                            fullscreen ?
-                                <svg viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
-                                </svg> :
-                                <svg viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-                                </svg>
-                        }
-                    </button>
-                </div>
-            </div>
-            <video preload={"auto"} key={data} src={data} className={videoStyles.video} ref={videoRef}
-                onClick={() => setPlaying(!playing)}
-                onLoadedData={(e) => setDuration(e.target.duration)}
-                onTimeUpdate={(e) => setCurrentTimeInternal(e.target.currentTime)}
-            ></video>
-        </div>
-    )
-}
-export function AudioFileView({ data, name, mimeType, fileSize, onContextMenu }) {
-    const PLAYBACK_SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2']
-    const [playing, _setPlaying] = useState(false) // true = playing, false = paused
-    const [volume, _setVolume] = useState(1) // 0 - 1
-    const [muted, _setMuted] = useState(true)
-    const [playbackSpeed, _setPlaybackSpeed] = useState('1')
-    const [currentTime, _setCurrentTime] = useState(0) // in seconds
-    const [currentTimeInternal, _setCurrentTimeInternal] = useState(0) // in seconds
-    const [duration, _setDuration] = useState(0) // in seconds
-    const [pbSpeedMenuState, setPbSpeedMenuState] = useState(false)
-
-    const mutedRef = useRef(muted)
-    const volumeRef = useRef(volume)
-    const playingRef = useRef(playing)
-    const playbackSpeedRef = useRef(playbackSpeed)
-    const currentTimeRef = useRef(currentTime)
-    const currentTimeRefInternal = useRef(currentTimeInternal)
-    const durationRef = useRef(duration)
-
-    const setMuted = (value) => {
-        mutedRef.current = value
-        _setMuted(value)
-    }
-    const setVolume = (value) => {
-        volumeRef.current = value
-        _setVolume(value)
-    }
-    const setPlaying = (value) => {
-        playingRef.current = value
-        _setPlaying(value)
-    }
-    const setPlaybackSpeed = (value) => {
-        playbackSpeedRef.current = value
-        _setPlaybackSpeed(value)
-    }
-    const setCurrentTime = (value) => {
-        currentTimeRef.current = value
-        _setCurrentTime(value)
-    }
-    const setCurrentTimeInternal = (value) => {
-        currentTimeRefInternal.current = value
-        currentTimeRef.current = value
-        _setCurrentTimeInternal(value)
-    }
-    const setDuration = (value) => {
-        durationRef.current = value
-        _setDuration(value)
-    }
-
-    const audioRef = useRef(null)
-    const audioContainerRef = useRef(null)
-    const pbSpeedElementRef = useRef(null)
-
-    useEffect(() => {
-        playing ? audioRef.current.play() : audioRef.current.pause()
-    }, [playing])
-    useEffect(() => {
-        audioRef.current.volume = volume
-    }, [volume])
-    useEffect(() => {
-        audioRef.current.muted = muted
-    }, [muted])
-    useEffect(() => {
-        audioRef.current.currentTime = currentTime
-    }, [currentTime])
-    useEffect(() => {
-        audioRef.current.playbackRate = parseFloat(playbackSpeed)
-    }, [playbackSpeed])
-    useEffect(() => {
-        function handleClickEvent(e) {
-            if (!e.composedPath().includes(pbSpeedElementRef.current)) {
-                setPbSpeedMenuState(false)
-            }
-        }
-        document.addEventListener('click', handleClickEvent)
-
-        return () => { // cleanup event listener
-            document.removeEventListener('click', handleClickEvent)
-        }
-    }, [])
-
-    // controls: play/pause, duration and current time, timeline, volume/mute, playback speed, download
-    return (
-        <div data-contexttype="FILE" className={audioStyles.audioContainer} data-playing={playing} ref={audioContainerRef} onContextMenu={onContextMenu}>
-            <div className={audioStyles.audioControls}>
-                <button className={audioStyles.playPauseBtn} onClick={() => setPlaying(!playing)}>
-                    {
-                        playing ?
-                            <svg viewBox="0 0 24 24">
-                                <path fill="currentColor" d="M14,19H18V5H14M6,19H10V5H6V19Z" />
-                            </svg> :
-                            <svg viewBox="0 0 24 24">
-                                <path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z" />
-                            </svg>
-                    }
-                </button>
-                <div className={audioStyles.duration}>
-                    {formatDuration(currentTimeRef.current)} / {formatDuration(duration)}
-                </div>
-                <div className={audioStyles.timeline}>
-                    <input className={audioStyles.timelineInput} type="range" min="0" max={duration} value={currentTimeRef.current} onChange={(e) => setCurrentTime(e.target.value)} />
-                </div>
-                <div className={audioStyles.volumeContainer}>
-                    <button className={videoStyles.muteBtn} onClick={() => setMuted(!muted)}>
-                        {
-                            muted || volume == 0 ?
-                                <svg viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z" />
-                                </svg> :
-                                (
-                                    volume > .5 ?
-                                        <svg viewBox="0 0 24 24">
-                                            <path fill="currentColor" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z" />
-                                        </svg> :
-                                        <svg viewBox="0 0 24 24">
-                                            <path fill="currentColor" d="M5,9V15H9L14,20V4L9,9M18.5,12C18.5,10.23 17.5,8.71 16,7.97V16C17.5,15.29 18.5,13.76 18.5,12Z" />
-                                        </svg>
-                                )
-                        }
-                    </button>
-                    <input className={audioStyles.volumeSlider} type="range" min="0" max="1" step="any" defaultValue={1} onInput={(e) => {
-                        setVolume(e.target.value)
-                        if (muted) setMuted(false)
-                    }} />
-                </div>
-                <div ref={pbSpeedElementRef} className={audioStyles.playBackSpeedContainer} onClick={
-                    () => setPbSpeedMenuState(!pbSpeedMenuState)
-                }>
-                    {/* show menu of all playback speeds and highlight the one that is currently selected */}
-                    <ul className={audioStyles.playBackSpeeds} data-open={pbSpeedMenuState}>
-                        {
-                            PLAYBACK_SPEEDS.map(speed => {
-                                return <li key={speed} data-current={speed == playbackSpeed} className={audioStyles.playBackSpeed} onClick={() => setPlaybackSpeed(speed)}>{speed}x</li>
-                            })
-                        }
-                    </ul>
-                    <div className={audioStyles.currentPlayBackSpeed}>{playbackSpeed}x</div>
-                </div>
-                <div className={audioStyles.audioFileDownload} title={`Download ${name}`} onClick={(e) => {
-                    downloadBase64File(data, name)
-                }}>file_download</div>
-            </div>
-            <audio ref={audioRef} key={data} src={data}
-                onLoadedData={(e) => setDuration(e.target.duration)}
-                onTimeUpdate={(e) => setCurrentTimeInternal(e.target.currentTime)}
-            >
-            </audio>
-        </div>
-    )
-}
-export function ImageFileView({ data, name, mimeType, fileSize, onContextMenu }) {
-    const MAX_DIMENSION = 300
-    const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
-    const [intrinsicDimensions, setIntrinsicDimensions] = useState({ width: 0, height: 0 })
-
-    useEffect(() => {
-        const img = new Image()
-        img.src = `data:${mimeType};base64,${data}`
-        img.onload = () => {
-            if (img.width > MAX_DIMENSION) {
-                setDimensions({
-                    width: MAX_DIMENSION,
-                    height: Math.floor(img.height * (MAX_DIMENSION / img.width))
-                })
-            } else if (img.height > MAX_DIMENSION) {
-                setDimensions({
-                    width: Math.floor(img.width * (MAX_DIMENSION / img.height)),
-                    height: MAX_DIMENSION
-                })
-            } else {
-                setDimensions({ width: img.width, height: img.height })
-            }
-            setIntrinsicDimensions({ width: img.width, height: img.height })
-        }
-    }, [])
-
-    return <img
-        data-contexttype="FILE"
-        className={fileStyles.messageFile}
-        alt={name}
-        src={`data:${mimeType};base64,${data}`}
-        title={name}
-        onContextMenu={(e) => { onContextMenu(e, intrinsicDimensions) }}
-        width={dimensions.width}
-        height={dimensions.height}
-    />
-}
-export function DefaultFileView({ data, name, mimeType, fileSize, onContextMenu }) {
-    return (
-        <div className={fileStyles.messageFile} onContextMenu={onContextMenu}>
-            <div data-contexttype="FILE" className={fileStyles.fileViewContainer}>
-                <div className={fileStyles.fileImage}>draft</div>
-                <div className={fileStyles.fileInfo}>
-                    <a className={fileStyles.fileName} title={name} href={data} download={name} onClick={(e) => {
-                        e.preventDefault()
-                        downloadBase64File(data, name)
-                    }}>{shortenFileName(name, 8)}</a>
-                    <div className={fileStyles.fileSize} title={fileSize}>{fileSize}</div>
-                </div>
-                <div className={fileStyles.fileDownload} onClick={(e) => {
-                    downloadBase64File(data, name)
-                }}>file_download</div>
-            </div>
-        </div>
-
-    )
-}
-export function AttachedFileView({ id, data, name, mimeType, fileSize, onContextMenu, attachedFiles, setAttachedFiles, setNotificationState }) {
-    const generalType = mimeType.split('/')[0]
-    const specificType = mimeType.split('/')[1]
-
-    const [editState, setEditState] = useState(false)
-
-    return (
-        <div data-contexttype="FILE" className={fileStyles.attachedFileViewContainer} onContextMenu={onContextMenu}>
-            <div className={fileStyles.attachmentButtons}>
-                <div className={`${fileStyles.editAttachmentButton} ${fileStyles.attachmentButton}`}
-                    onClick={(e) => {
-                        setEditState(!editState)
-                    }}
-                >edit</div>
-                <div className={`${fileStyles.removeAttachmentButton} ${fileStyles.attachmentButton}`}
-                    onClick={() => {
-                        setAttachedFiles(attachedFiles.filter(file => file.name != name))
-                        setNotificationState({ state: 'success', data: { message: `File "${shortenFileName(name, 15)}" removed!` } })
-                    }}
-                >delete</div>
-            </div>
-            <div className={fileStyles.attachedFile}>
-                {
-                    generalType == 'image' ?
-                        <img
-                            className={fileStyles.attachedImage}
-                            alt={name}
-                            src={data}
-                            title={name}
-                        /> :
-                        <div className={fileStyles.fileIcon}>
-                            {
-                                generalType == 'audio' ?
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m34.76 42.16c-.74-.3-1.6-.14-2.18.44l-8.58 9.4h-6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h6l8.58 9.42c.58.58 1.44.74 2.18.44.76-.32 1.24-1.06 1.24-1.86v-32c0-.8-.48-1.54-1.24-1.84zm5.24 3.84v4c5.52 0 10 4.48 10 10s-4.48 10-10 10v4c7.72 0 14-6.28 14-14s-6.28-14-14-14zm0 8c3.3 0 6 2.7 6 6s-2.7 6-6 6v-4c1.1 0 2-.9 2-2s-.9-2-2-2z" fill="#5865f2" fillRule="evenodd" /></svg>
-                                    :
-                                    generalType == 'video' ?
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><g fill="#5865f2"><path clipRule="evenodd" d="m16 0h-8v8h8zm0 16h-8v8h8zm-8 16h8v8h-8zm56 0h-8v8h8zm-56 16h8v8h-8zm56 0h-8v8h8zm-56 16h8v8h-8zm56 0h-8v8h8zm-56 16h8v8h-8zm56 0h-8v8h8z" fillRule="evenodd" /><path d="m30 50.98v18l15-9z" /></g></svg>
-                                        :
-                                        specificType == 'pdf' ?
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path d="m56.1014 65.0909c-3.1394-3.2-11.7-1.8909-13.7625-1.6545-2.2633-2.2182-4.1981-4.7273-5.7861-7.4546 1.1317-3.1636 1.7705-6.4727 1.9348-9.8182 0-2.9636-1.2047-6.1636-4.5815-6.1636-1.1864.0364-2.2815.6545-2.9021 1.6545-1.442 2.491-.8397 7.4546 1.4419 12.5455-1.5697 4.6545-3.5592 9.1636-5.9138 13.4909-3.5046 1.4182-10.8604 4.7273-11.4627 8.2909-.2373 1.0909.146 2.2.9674 2.9637.8578.6909 1.9165 1.0545 3.0299 1.0545 4.4719 0 8.8161-6.0364 11.8278-11.1273 3.4315-1.1454 6.936-2.0545 10.4952-2.7272 4.7092 4.0181 8.8161 4.6181 10.9882 4.6181 2.9021 0 3.9791-1.1818 4.3441-2.2545.5293-1.1455.2921-2.5091-.6206-3.4182zm-3.0117 2.0182c-.1277.8364-1.2047 1.6545-3.1394 1.1818-2.2451-.5818-4.3442-1.6364-6.1512-3.0727 1.5697-.2364 5.0743-.6 7.5931-.1273.9674.2364 1.9348.8182 1.6975 2.0182zm-20.1509-24.3818c.2007-.3455.5658-.5637.9673-.6 1.077 0 1.3325 1.3091 1.3325 2.3636-.1278 2.5091-.6023 4.9636-1.442 7.3455-1.8252-4.7273-1.4602-8.0546-.8578-9.1091zm-.2373 22.9454c1.0404-2.1636 1.9713-4.3636 2.7744-6.6182 1.1134 1.7455 2.4093 3.3637 3.8695 4.8546-.0182.1091-3.76.8182-6.6439 1.7636zm-7.1186 4.7455c-2.7744 4.4909-5.6766 7.3454-7.2463 7.3454-.2555-.0181-.5111-.1091-.7301-.2363-.3651-.2364-.5111-.6728-.3651-1.0728.3651-1.6545 3.5046-3.909 8.3415-6.0363z" fill="#5865f2" /></svg>
-                                            :
-                                            specificType == 'css' || specificType == 'html' || specificType == 'xml' ?
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m25.56 80h4.32l16.56-40h-4.32zm1.1-12-8-8 8-8h-5.66l-8 8 8 8zm26.68-8-8 8h5.66l8-8-8-8h-5.66z" fill="#5865f2" fillRule="evenodd" /></svg>
-                                                :
-                                                specificType == 'js' || specificType == 'json' || specificType == 'ts' || specificType == 'tsx' || specificType == 'jsx' || specificType == 'x-python' ?
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m23.7 40.46c.66-.28 1.32-.38 1.98-.42.62-.04 1.38-.04 2.26-.04h.06v4c-.96 0-1.58 0-2.04.02-.46.04-.64.08-.72.12-.48.2-.88.6-1.08 1.08-.04.1-.08.26-.12.72-.04.48-.04 1.1-.04 2.06v6.06c0 .88 0 1.64-.04 2.26-.06.66-.14 1.32-.42 1.98-.26.64-.64 1.2-1.1 1.7.46.5.84 1.06 1.1 1.7.28.66.38 1.32.42 1.98.04.62.04 1.38.04 2.26v6.06c0 .96 0 1.58.02 2.04.04.46.08.64.12.72.2.48.6.88 1.08 1.08.1.04.26.08.72.12.48.04 1.1.04 2.06.04v4h-.06c-.88 0-1.64 0-2.26-.04-.66-.06-1.32-.14-1.98-.42-1.46-.6-2.64-1.76-3.24-3.24-.28-.66-.38-1.32-.42-1.98-.04-.62-.04-1.38-.04-2.26v-6.06c0-.96 0-1.58-.02-2.04-.04-.46-.08-.64-.12-.72-.2-.48-.6-.88-1.08-1.08-.1-.04-.26-.08-.72-.12-.48-.04-1.1-.04-2.06-.04v-4c.96 0 1.58 0 2.04-.02.46-.04.64-.08.72-.12.48-.2.88-.58 1.08-1.08.04-.1.08-.26.12-.72.04-.48.04-1.1.04-2.06v-6.06c0-.88 0-1.64.04-2.26.06-.66.14-1.32.42-1.98.6-1.46 1.76-2.64 3.24-3.24zm29.52 17.38c.1.04.26.08.72.12.48.04 1.1.04 2.06.04v4c-.96 0-1.58 0-2.04.02-.46.04-.64.08-.72.12-.48.2-.88.6-1.08 1.08-.04.1-.08.26-.12.72-.04.48-.04 1.1-.04 2.06v6.06c0 .88 0 1.64-.04 2.26-.06.66-.14 1.32-.42 1.98-.6 1.46-1.78 2.64-3.24 3.24-.66.28-1.32.38-1.98.42-.62.04-1.38.04-2.26.04h-.06v-4c.96 0 1.58 0 2.04-.02.46-.04.64-.08.72-.12.48-.2.88-.58 1.08-1.08.04-.1.08-.26.12-.72.04-.48.04-1.1.04-2.06v-6.06c0-.88 0-1.64.04-2.26.06-.66.16-1.32.42-1.98.26-.64.64-1.2 1.1-1.7-.46-.5-.84-1.06-1.1-1.7-.28-.66-.38-1.32-.42-1.98-.04-.62-.04-1.38-.04-2.26v-6.06c0-.96 0-1.58-.02-2.04-.04-.46-.08-.64-.12-.72-.2-.48-.6-.88-1.08-1.08-.1-.04-.26-.08-.72-.12-.48-.04-1.1-.04-2.06-.04v-4h.06c.88 0 1.64 0 2.26.04.66.06 1.32.14 1.98.42 1.46.6 2.64 1.76 3.24 3.24.28.66.38 1.32.42 1.98.04.62.04 1.38.04 2.26v6.06c0 .96 0 1.58.02 2.04.04.46.08.64.12.72.2.48.6.88 1.08 1.08z" fill="#5865f2" fillRule="evenodd" /></svg>
-                                                    :
-                                                    generalType == 'text' ?
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /><path clipRule="evenodd" d="m56 40h-16v4h16zm0 12h-16v4h16zm-40 12h40v4h-40zm40 12h-40v4h40zm-30-20h-4v-12h-6v-4h16v4h-6z" fill="#5865f2" fillRule="evenodd" /></svg>
-                                                        :
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" height="96" viewBox="0 0 72 96" width="72"><path d="m72 29.3v60.3c0 2.24 0 3.36-.44 4.22-.38.74-1 1.36-1.74 1.74-.86.44-1.98.44-4.22.44h-59.2c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-83.2c0-2.24 0-3.36.44-4.22.38-.74 1-1.36 1.74-1.74.86-.44 1.98-.44 4.22-.44h36.3c1.96 0 2.94 0 3.86.22.5.12.98.28 1.44.5v16.88c0 2.24 0 3.36.44 4.22.38.74 1 1.36 1.74 1.74.86.44 1.98.44 4.22.44h16.88c.22.46.38.94.5 1.44.22.92.22 1.9.22 3.86z" fill="#d3d6fd" /><path d="m68.26 20.26c1.38 1.38 2.06 2.06 2.56 2.88.18.28.32.56.46.86h-16.88c-2.24 0-3.36 0-4.22-.44-.74-.38-1.36-1-1.74-1.74-.44-.86-.44-1.98-.44-4.22v-16.880029c.3.14.58.28.86.459999.82.5 1.5 1.18 2.88 2.56z" fill="#939bf9" /></svg>
-                            }
-                        </div>
-                }
-            </div>
-            {
-                editState ?
-                    <form action="" className={fileStyles.editAttachmentFormContainer}
-                        onSubmit={(e) => {
-                            e.preventDefault()
-                            const formData = new FormData(e.target)
-                            let newName = formData.get('new_attachment_name')
-
-                            if (newName.split('.').pop() !== specificType && EXTENSIONS.includes(specificType)) {
-                                newName = newName + '.' + specificType
-                            } else if (newName === '' || newName === name) {
-                                return setEditState(false)
-                            }
-                            setAttachedFiles(attachedFiles.map(file => {
-                                if (file.id === id) {
-                                    file.name = newName
-                                }
-                                return file
-                            }))
-                            return setEditState(false)
-                        }}>
-                        <input
-                            type="text"
-                            name="new_attachment_name"
-                            className={fileStyles.editAttachmentInput}
-                            defaultValue={name}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            autoCapitalize="off"
-                            spellCheck="false"
-                            onInput={(e) => {
-                                e.preventDefault()
-                                if (e.target.value.length > MAX_FILE_NAME_LEN) {
-                                    e.target.value = e.target.value.slice(0, MAX_FILE_NAME_LEN)
-                                    setNotificationState({ state: 'warning', data: { message: 'Your file name is too long!' } })
-                                    return false
-                                }
-                            }}
-                        />
-                        <button type="submit" className={fileStyles.editAttachmentSubmit}>check_circle</button>
-                    </form>
-                    :
-                    <div className={fileStyles.attachedFileName}>
-                        {shortenFileName(name, 30)}
-                    </div>
-            }
-        </div>
-    )
-}
-
-// Custom Context Menu
-export function ContextMenu({ x, y, type, data, currentGroup, user, msgsState, socket, setNotificationState }) {
-    if (type == null) return <></>
-    // messages, groups, users, files
-    // Menu Position
-    const menuStyles = {
-        left: `${x}px`,
-        top: `${y}px`,
-    }
-    if (x > window.innerWidth / 2) {
-        menuStyles.left = ''
-        menuStyles.right = `${window.innerWidth - x}px`
-    }
-    if (y > window.innerHeight / 2) {
-        menuStyles.top = ''
-        menuStyles.bottom = `${window.innerHeight - y}px`
-    }
-
-    switch (type.toUpperCase()) {
-        case "MESSAGE":
-            {
-
-                return (
-                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <MessageContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} socket={socket} setNotificationState={setNotificationState} />
-                    </div>
-                )
-            }
-        case "USER":
-            {
-                return (
-                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <UserContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
-                    </div>
-                )
-            }
-        case "FRIEND":
-            {
-                return (
-                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <FriendContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
-                    </div>
-                )
-            }
-        case "GROUP":
-            {
-                return (
-                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <GroupContextMenu data={data} group={currentGroup} user={user} msgsState={msgsState} setNotificationState={setNotificationState} />
-                    </div>
-                )
-            }
-        case "FILE":
-            {
-                return (
-                    <div data-contexttype="MENU" className={contextMenuStyles.contextMenuWrapper} style={menuStyles}>
-                        <FileContextMenu data={data} group={currentGroup} user={user} setNotificationState={setNotificationState} />
-                    </div>
-                )
-            }
-        case "NONE":
-        default:
-            return <></>
-    }
-}
-export function MessageContextMenu({ group, user, data, socket, msgsState, setNotificationState }) {
-    const [messages, setMessages] = msgsState
-    const setMessageEdit = data.setMessageEdit
-    const groupID = group.id
-    const messageID = data.id
-    // Current Message
-    const groupMessages = messages.find(grp => grp.id == groupID).messages
-    const message = groupMessages.find(msg => msg.id == messageID)
-
-    if (message == null) return <></>
-
-    // Message Data
-    const messageContent = message.message.content
-    const messageLink = `http://localhost:3000/groups/${groupID}/messages/${messageID}`
-
-    const author = user.uid == message.author.uid
-
-    return (
-        <ul className={contextMenuStyles.contextMenuContainer}>
-            <li className={contextMenuStyles.contextMenuItem}
-                onClick={async () => {
-                    await navigator.clipboard.writeText(messageContent)
-                    setNotificationState({ state: 'success', data: { message: 'Copied to Clipboard' } })
-                }}
-            >
-                <div className={contextMenuStyles.contextMenuItemText}>Copy Content</div>
-                <div className={contextMenuStyles.contextMenuItemIcon}>content_copy</div>
-            </li>
-            <li className={contextMenuStyles.contextMenuItem}
-                onClick={async () => {
-                    await navigator.clipboard.writeText(messageLink)
-                    setNotificationState({ state: 'success', data: { message: 'Copied to Clipboard' } })
-                }}
-            >
-                <div className={contextMenuStyles.contextMenuItemText}>Copy Message Link</div>
-                <div className={contextMenuStyles.contextMenuItemIcon}>link</div>
-            </li>
-            {
-                author ?
-                    (
-                        <>
-                            <li className={`${contextMenuStyles.contextMenuItem} ${contextMenuStyles.contextMenuItemWarn}`}
-                                onClick={async (e) => {
-                                    const target = data.target
-                                    setMessageEdit(true)
-
-                                    function handleKeyDown(e) {
-                                        if (e.key == 'Escape') {
-                                            setMessageEdit(false)
-                                        }
-                                        else if (e.key == 'Enter' && !e.shiftKey) {
-                                            setMessageEdit(false)
-                                            const newText = e.target.innerText
-                                            if (newText == messageContent) return setNotificationState({ state: 'warning', data: { message: 'Message was not changed' } })
-                                            socket.emit('messageEdit-server', { groupId: group.id, messageId: message.id, newMessage: newText, accessToken: jsCookie.get('accessToken') }, (res) => {
-                                                if (!res) console.log('error, unable to edit message')
-                                                setNotificationState({ state: 'warning', data: { message: 'Message Edited' } })
-                                            })
-                                        }
-
-                                        target.removeEventListener('keydown', handleKeyDown)
-                                    }
-
-                                    target.addEventListener('keydown', (e) => {
-                                        handleKeyDown(e)
-                                    })
-                                }}
-                            >
-                                <div className={`${contextMenuStyles.contextMenuItemText} ${contextMenuStyles.contextMenuItemTextWarn}`}>Edit Message</div>
-                                <div className={`${contextMenuStyles.contextMenuItemIcon} ${contextMenuStyles.contextMenuItemTextWarn}`}>edit</div>
-                            </li>
-                            <li className={`${contextMenuStyles.contextMenuItem} ${contextMenuStyles.contextMenuItemErr}`}
-                                onClick={async () => {
-                                    socket.emit('messageDelete-server', { groupId: groupID, messageId: messageID, accessToken: jsCookie.get('accessToken') }, (status) => {
-                                        if (!status) console.log('error, unable to delete message')
-                                        setNotificationState({ state: 'error', data: { message: 'Message Deleted' } })
-                                    })
-                                }}
-                            >
-                                <div className={`${contextMenuStyles.contextMenuItemText} ${contextMenuStyles.contextMenuItemTextErr}`}>Delete Message</div>
-                                <div className={`${contextMenuStyles.contextMenuItemIcon} ${contextMenuStyles.contextMenuItemTextErr}`}>delete</div>
-                            </li>
-                        </>
-                    )
-                    :
-                    null
-            }
-            <li className={contextMenuStyles.contextMenuItem}
-                onClick={async () => {
-                    await navigator.clipboard.writeText(messageID)
-                    setNotificationState({ state: 'success', data: { message: 'Copied to Clipboard' } })
-                }}
-            >
-                <div className={contextMenuStyles.contextMenuItemText}>Copy ID</div>
-                <div className={contextMenuStyles.contextMenuItemIcon}>apps</div>
-            </li>
-        </ul>
-    )
-}
-export function FileContextMenu({ group, user, data, setNotificationState }) {
-    const fileData = data.filedata
-    const fileName = data.filename
-    const fileSize = data.filesize
-    const fileMimeType = data.mimeType
-    const fileDimensions = data.dimensions
-    let fileAspectRatio = null
-    const generalType = fileMimeType.split('/')[0]
-
-    // calculate aspect ratio with gcd
-    if (fileDimensions) {
-        const r = gcd(fileDimensions.width, fileDimensions.height)
-        fileAspectRatio = `${fileDimensions.width / r}:${fileDimensions.height / r}`
-    }
-
-    return (
-        <ul className={contextMenuStyles.contextMenuContainer}>
-            <li className={contextMenuStyles.contextMenuFileInfo}>
-                <div title={`File Name: ${fileName}`}>{fileName}</div>
-                <div className={contextMenuStyles.contextMenuItemText}>
-                    <div title={`File Size: ${fileSize}`}>{fileSize}</div>
-                    <div title={`File Type: ${fileMimeType}`}>{fileMimeType}</div>
-                </div>
-                {
-                    fileAspectRatio ?
-                        <div className={contextMenuStyles.contextMenuItemText}>
-                            <div title={`Intrinsic Aspect Ratio: ${fileAspectRatio}`}>{fileAspectRatio}</div>
-                            <div title={`Intrinsic Dimensions: ${fileDimensions.width}x${fileDimensions.height}`}>{`${fileDimensions.width}x${fileDimensions.height}`}</div>
-                        </div>
-                        : null
-                }
-            </li>
-            <li className={contextMenuStyles.contextMenuItem}
-                onClick={() => {
-                    downloadBase64File(fileData, fileName)
-                    setNotificationState({ state: 'success', data: { message: 'Downloaded File' } })
-                }}
-            >
-                <div className={contextMenuStyles.contextMenuItemText}>Download {
-                    generalType == 'image' ? 'Image' : generalType == 'video' ? 'Video' : generalType == 'audio' ? 'Audio' : 'File'
-                }</div>
-                <div className={contextMenuStyles.contextMenuItemIcon} >file_download</div>
-            </li>
-            <li className={contextMenuStyles.contextMenuItem}
-                onClick={() => {
-                    const w = window.open('about:blank');
-
-                    setTimeout(function () { //FireFox seems to require a setTimeout for this to work.
-                        const body = w.document.body;
-                        if (generalType == 'audio') {
-                            const audio = document.createElement('audio');
-                            audio.src = fileData;
-                            audio.controls = true;
-                            body.appendChild(audio);
-                        } else if (generalType == 'video') {
-                            const video = document.createElement('video');
-                            video.src = fileData;
-                            video.controls = true;
-                            body.appendChild(video);
-                        } else if (generalType == 'image') {
-                            const img = document.createElement('img');
-                            img.src = fileData;
-                            img.style.maxWidth = '100%';
-                            img.style.maxHeight = '100%';
-                            body.appendChild(img);
-                        } else {
-                            const iframe = document.createElement('iframe');
-                            iframe.src = fileData
-                            body.appendChild(iframe);
-                            iframe.style.width = '100%'
-                            iframe.style.height = '100%'
-                            iframe.style.padding = '0'
-                            iframe.style.margin = '0'
-                            iframe.style.border = 'none'
-                        }
-                        body.style.display = 'flex';
-                        body.style.alignItems = 'center';
-                        body.style.justifyContent = 'center';
-                        body.style.backgroundColor = 'black'
-                        body.style.width = '100%'
-                        body.style.height = '100%'
-                        body.style.border = 'none'
-                        body.style.padding = '0'
-                        body.style.margin = '0'
-                    }, 0);
-                }}
-            >
-                <div className={contextMenuStyles.contextMenuItemText}>Open In New Tab</div>
-                <div className={contextMenuStyles.contextMenuItemIcon} >open_in_new</div>
-            </li>
-        </ul>
-    )
-}
-// TODO: Finish the rest of the context menus
-export function UserContextMenu({ group, user, msgsState, data }) {
-    const [messages, setMessages] = msgsState
-    return (
-        <ul className={contextMenuStyles.contextMenuContainer}>
-            <li className={contextMenuStyles.contextMenuItem}>
-                <div className={contextMenuStyles.contextMenuItemText}>asd</div>
-                <div className={contextMenuStyles.contextMenuItemIcon}></div>
-            </li>
-        </ul>
-    )
-}
-export function GroupContextMenu({ group, user, msgsState, data }) {
-    return <></>
-}
-export function FriendContextMenu({ group, user, msgsState, data }) { // remove friend,...
-    return <></>
-}
-
-// Modals
-export function MiniNotificationModal({ state, setState }) { // click to close, status will determine icon and color, message will be displayed
-    const [hover, setHover] = useState(false)
-    const text = state.data ? state.data.message : ''
-
-    function closeModal() {
-        setState({ state: `close ${state.state}`, data: state.data })
-        const timeout = setTimeout(() => {
-            setState({ state: 'null', data: null })
-            clearTimeout(timeout)
-        }, 300);
-    }
-
-    useEffect(() => { // Close modal after 3 seconds
-        if (state.state.match(/null/g) || hover) return
-
-        const timeout = setTimeout(closeModal, 3000);
-
-        return () => {
-            clearTimeout(timeout)
-        }
-    }, [state.state, hover])
-
-    return (
-        <div className={modalStyles.miniModalContainer} data-state={state.state}
-            onClick={closeModal}
-            onMouseEnter={() => setHover(true)}
-            onMouseLeave={() => setHover(false)}
-        >
-            {text}
-        </div>
-    )
-}
-export function FullModalWrapper({ state, setState, children }) { // title, content, status
-    return (
-        <div className={modalStyles.fullModalContainer} data-state={state.state}>
-            <div className={modalStyles.fullModalBackground} onClick={() => setState({ state: false, data: state.data })}></div>
-            <div className={modalStyles.fullModalContent}>
-                <div className={modalStyles.fullModalClose}>
-                    <div className={modalStyles.fullModalCloseIcon} onClick={() => setState({ state: false, data: state.data })}>close</div>
-                </div>
-                <div className={modalStyles.fullModalTitle}>{state.data ? state.data.title : ''}</div>
-
-                <div className={modalStyles.fullModalChildren}>{children}</div>
-            </div>
-        </div>
-    )
-}
-
 // Extra
 export function NoGroupSelected() {
     return (
@@ -1881,52 +1133,6 @@ export function PageLoading() {
     return (
         <div style={{ width: '100%', height: '90%', display: "flex", justifyContent: "center", alignItems: "center", position: 'absolute' }}>
             <Spinner color={SPINNER_COLOR} height={'80px'} width={'80px'} thickness={'8px'} animationDuration={'1s'} animationTimingFunction={'cubic-bezier(0.62, 0.27, 0.08, 0.96)'} />
-        </div>
-    )
-}
-export function AccountDropdown({ signOut, username }) {
-    const [open, setOpen] = useState(false)
-    const [clickOpen, setClickOpen] = useState(false)
-    const [signOutLoading, setSignOutLoading] = useState(false)
-
-    return (
-        <div className={homeStyles.dropdownContainer} style={{ borderRadius: open ? '6px 6px 0 0' : '6px' }}
-            onMouseOver={() => {
-                if (!clickOpen) setOpen(true)
-            }}
-            onMouseLeave={() => {
-                if (!clickOpen) setOpen(false)
-            }}
-        >
-            <div className={homeStyles.dropdownButton}
-                style={{ borderRadius: open ? '6px 6px 0 0' : '6px' }}
-                onClick={() => setClickOpen(!clickOpen)}
-            >
-                <div className={homeStyles.dropdownButtonText}>{shortenName(username, 25)}</div>
-                <div className={homeStyles.dropdownButtonIcon}>account_circle</div>
-            </div>
-            <ul className={homeStyles.dropdown} style={{ top: open ? '44px' : '40px', opacity: open ? '1' : '0', pointerEvents: open ? 'all' : 'none' }}>
-                <li className={homeStyles.dropdownItem} onClick={() => window.location = '/account/myaccount'}>
-                    <div className={homeStyles.dropdownItemText}>Settings</div>
-                    <div className={homeStyles.dropdownItemIcon}>settings</div>
-                </li>
-                <li className={`${homeStyles.dropdownItem} ${homeStyles.dropdownItemImportant}`} onClick={async () => {
-                    setSignOutLoading(true)
-                    setTimeout(async () => {
-                        await signOut()
-                    }, 1500);
-                }}>
-                    {
-                        signOutLoading ?
-                            <Spinner color={'#d25041'} height={23} width={23} thickness={4} animationDuration={'.95s'} />
-                            :
-                            <>
-                                <div className={homeStyles.dropdownItemText}>Sign Out</div>
-                                <div className={homeStyles.dropdownItemIcon}>logout</div>
-                            </>
-                    }
-                </li>
-            </ul>
         </div>
     )
 }

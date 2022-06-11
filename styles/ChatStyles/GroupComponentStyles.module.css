@@ -21,12 +21,12 @@
     user-select: none;
     transition: 200ms ease;
     margin: 0 10px;
+    color: var(--font-color);
 }
 
 .groupsContainer {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: 40px 1fr 100px;
 
     height: calc(100vh - var(--header-height));
     width: 100%;
@@ -39,7 +39,7 @@
     align-items: center;
     height: fit-content;
     width: 100%;
-    height: 100%;
+    height: 40px;
     transition: 100ms ease;
 }
 
@@ -68,7 +68,7 @@
 .friends {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: 40px 40px 1fr;
+    overflow-y: auto;
 }
 
 .friendsHeader {
@@ -119,6 +119,27 @@
 .addFriendsButton:hover {
     background-color: #0f3941;
 }
+
+.noFriendsContainer {
+    width: 100%;
+    text-align: center;
+    padding: 20px 8px;
+    color: var(--font-color);
+    user-select: none;
+}
+.noFriendsContainer a {
+    color: #bdfaff;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* .friendsContainer {
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: inherit;
+} */
 
 /* groups */
 .groups {

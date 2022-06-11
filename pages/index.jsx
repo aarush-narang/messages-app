@@ -3,7 +3,9 @@ import homeStyles from "../styles/Home.module.css";
 import * as cookie from 'cookie'
 import { HomeHeader } from "./components/header";
 import { csrf } from "../lib/middleware";
-import { GroupsComponent, ChatComponent, PageLoading, ContextMenu, FullNotificationModal, MiniNotificationModal, JoinGroupModal } from "./components/chatComponents";
+import { GroupsComponent, ChatComponent, PageLoading } from "./components/chatComponents";
+import { FullModalWrapper, MiniNotificationModal } from './components/modalComponents'
+import { ContextMenu } from './components/contextMenuComponents'
 import { useState, useEffect } from "react";
 import io from "socket.io-client";
 import jsCookie from "js-cookie";
