@@ -79,6 +79,17 @@ export async function useRefetchToken(callback) { // callback is a function that
     }
     return res
 }
+export function useReferredState(initialValue) {
+    const [state, setState] = useState(initialValue);
+    const reference = useRef(state);
+
+    const setReferredState = value => {
+        reference.current = value;
+        setState(value);
+    };
+
+    return [reference.current, setReferredState];
+}
 
 // Util
 // String Util

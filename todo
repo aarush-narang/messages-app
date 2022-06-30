@@ -1,27 +1,35 @@
 # PRIORITY:
-- create context menu for groups, people
-- create groups and add people to groups
-- create myaccount page for: account settings (change password, change email, change username, change avatar, delete account)
-- create members list for each group, displaying name and allowing for context menu, allow to kick members (only person who created the group can do this)
+- add star icon to groups that are owned by the current user in groups display (easy)
+- when editing message, allows user to save more than 6000 chars but when sending normally, limited to 6000 chars FIX (easy)
 
-## EXTRA:
-- add code highlight in message box and in message display
-- fix lagging with syntax highlighting
-- paste image in message area
-- fix logout issue with brave browser? and other browsers that block tracking and ip grabbing
+- create new page with message id in link to message so that the copy message link works (groups/[groupid]/[messageid]) (medium)
+    - going to have to move all index.jsx and [groupid].jsx code to new main component and use that across all routes
 
-
-## BUGS:
-- all "FIX" or "TODO" comments
-- when editing message, allows user to save more than 6000 chars but when sending normally, limited to 6000 chars
-
-## HEADER:
-- create header component that has links to: home and (account settings, logout, etc. in a dropdown): remains in all pages
-create settings page to change username, email, phone #, password, etc as well as to manage sessions panel (put btn in dropdown)
-fix header sizing
+- create myaccount page for: account settings (change password, change email, change username, change avatar, delete account, manage sessions panel, phone #?) (hard)
     - SESSIONS PANEL:
         - create a sessions panel with all open sessions: restore previous sessions if ip is same by refreshing access token?
         come up with ways to remove refresh tokens automatically that are not being used (max number of sessions?)
 
+- remove as much duplicate code as possible
+
+## EXTRA:
+- add no more messages label above all messages when max msgs is reached
+    - if there are no messages, show the group name and a description or help or something
+- add option to add passwords to files when uploading
+- add markdown support to message box and editing message box
+- add code highlight in message box and editing message box
+- fix lagging with syntax highlighting
+- fix logout issue with brave browser? and other browsers that block tracking and ip grabbing
+- show last message in group list
+    - shorten if too long
+    - if a file is attached with no message, show the file name (shorten if too long)
+
+## BUGS:
+- all "FIX" or "TODO" comments
+- cannot sign out from mobile
+- when user is added, previous messages do not show?
+- add error throwing in mongo functions if data is missing
+
 ## OTHER:
 - create visitor page with parallax effect (use fireship video for tutorial)
+- when user leaves or is kicked, not only remove their groups from groups state but also remove all saved messages in their messages state

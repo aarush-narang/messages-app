@@ -1,6 +1,6 @@
-import videoStyles from "../../styles/FileViews/VideoOverlay.module.css";
-import audioStyles from "../../styles/FileViews/AudioOverlay.module.css";
-import fileStyles from "../../styles/FileViews/FileViews.module.css";
+import videoStyles from "../styles/FileViews/VideoOverlay.module.css";
+import audioStyles from "../styles/FileViews/AudioOverlay.module.css";
+import fileStyles from "../styles/FileViews/FileViews.module.css";
 import { useState, useEffect, useRef } from "react";
 import { shortenFileName, downloadBase64File, formatDuration } from "./util";
 const MAX_FILE_NAME_LEN = 100
@@ -553,7 +553,7 @@ export function AttachedFileView({ id, data, name, mimeType, fileSize, onContext
                             defaultValue={name}
                             autoComplete="off"
                             autoCorrect="off"
-                            autoCapitalize="off"
+                            autoCapitalize="none"
                             spellCheck="false"
                             onInput={(e) => {
                                 e.preventDefault()

@@ -4,16 +4,16 @@
     grid-template-rows: 1fr;
     align-items: center;
 
-    padding: 10px 0;
+    padding: 8px;
 
     background-color: #0b2b31;
 
-    min-height: var(--header-height);
-    min-width: 230px;
+    max-height: var(--header-height);
+    min-width: min-content;
     width: 100%;
     color: var(--font-color);
     font-family: Urbanist;
-    font-size: 24px;
+    font-size: calc(0.7em + 1vmin);
 }
 
 .headerContainer {
@@ -22,11 +22,11 @@
     grid-template-rows: 1fr;
     align-items: center;
 
-    padding: 10px 0;
+    padding: 8px;
 
     background-color: #0b2b31;
 
-    min-height: var(--header-height);
+    max-height: var(--header-height);
     min-width: min-content;
     width: 100%;
     color: var(--font-color);
@@ -37,13 +37,13 @@
 .headerTitle {
     justify-self: center;
     align-self: center;
+    user-select: none;
     margin: 0 10px;
 }
 
 .headerButtons {
     display: flex;
     justify-content: flex-end;
-    margin-right: 10px;
 }
 
 .headerButton > a {

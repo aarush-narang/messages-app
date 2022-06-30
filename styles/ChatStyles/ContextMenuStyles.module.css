@@ -3,13 +3,11 @@
     z-index: 9999;
 
     width: 200px;
-    height: fit-content;
     background-color: hsl(190, 74%, 13%);
     border-radius: 5px;
     padding: 2px;
-    height: fit-content;
 }
-.contextMenuContainer {
+.contextMenuContainer { 
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -18,22 +16,6 @@
     padding: 4px;
     border-radius: 4px;
     height: 100%;
-}
-.contextMenuItem {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    list-style: none;
-    cursor: pointer;
-    user-select: none;
-    width: 100%;
-    color: var(--font-color);
-    padding: 6px 8px;
-    border-radius: 6px;
-}
-.contextMenuItem:hover {
-    background-color: hsl(190, 34%, 43%);
-    color: hsl(174, 85%, 7%);
 }
 
 .contextMenuFileInfo {
@@ -60,35 +42,70 @@
     margin: 1px 0;
 }
 
+.contextMenuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    width: 100%;
+    color: var(--font-color);
+    font-family: Urbanist;
+    font-size: 16px;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+}
+.contextMenuItem:hover {
+    background-color: hsl(190, 34%, 43%);
+    color: hsl(174, 85%, 7%);
+}
+
+.contextMenuItemErr {
+    color: var(--color-error-dark);
+    letter-spacing: 0.8px;
+}
 .contextMenuItemErr:hover {
     background-color: var(--color-error-dark);
 }
-.contextMenuItemErr:hover .contextMenuItemTextErr {
+.contextMenuItemErr > .contextMenuItemText {
+    font-weight: bold;
+}
+.contextMenuItemErr:hover .contextMenuItemText {
     color: hsl(190, 74%, 13%);
+}
+
+.contextMenuItemWarn {
+    color: var(--color-warning-dark);
+    letter-spacing: 0.8px;
 }
 .contextMenuItemWarn:hover {
     background-color: var(--color-warning-dark);
 }
-.contextMenuItemWarn:hover .contextMenuItemTextWarn {
+.contextMenuItemWarn > .contextMenuItemText {
+    font-weight: bold;
+}
+.contextMenuItemWarn:hover .contextMenuItemText {
+    color: hsl(190, 74%, 13%);
+}
+
+.contextMenuItemSuccess {
+    color: var(--color-correct-dark);
+    letter-spacing: 0.8px;
+}
+.contextMenuItemSuccess:hover {
+    background-color: var(--color-correct-dark);
+}
+.contextMenuItemSuccess > .contextMenuItemText {
+    font-weight: bold;
+}
+.contextMenuItemSuccess:hover .contextMenuItemText {
     color: hsl(190, 74%, 13%);
 }
 /* Text and Icons */
-.contextMenuItemText {
-    font-family: Urbanist;
-    font-size: 15px;
-}
-.contextMenuItemTextErr {
-    color: var(--color-error-dark);
-    font-weight: bold;
-    letter-spacing: 0.8px;
-}
-.contextMenuItemTextWarn {
-    color: var(--color-warning-dark);
-    font-weight: bold;
-    letter-spacing: 0.8px;
-}
 .contextMenuItemIcon {
     aspect-ratio: 1;
-    font-size: 20px;
+    font-size: 23px;
     font-family: var(--symbols-font-family);
 }

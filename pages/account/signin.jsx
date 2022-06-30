@@ -1,10 +1,10 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
 import styles from "../../styles/FormStyles/Forms.module.css";
-import { PasswordInput, Button, Input, ErrorMessage } from '../components/formComponents'
+import { PasswordInput, Button, Input, ErrorMessage } from '../../components/formComponents'
 import * as cookie from 'cookie'
 import { csrf } from "../../lib/middleware";
-import { FormPagesHeader } from "../components/header";
+import { FormPagesHeader } from "../../components/header";
 
 const validateEmail = (email) => {
     const email_regex = /^(([^<>()\[\]\\.,;:\s@\"]+(\.[^<>()\[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/

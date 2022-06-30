@@ -1,11 +1,11 @@
-import headerStyles from '../../styles/Header.module.css'
-import homeStyles from "../../styles/Home.module.css";
+import headerStyles from '../styles/Header.module.css'
+import homeStyles from "../styles/Home.module.css";
 import Cookies from 'js-cookie'
 import { useState } from 'react'
 import { useRefetchToken, shortenName } from './util'
+import { Spinner } from './formComponents';
 
 export function HomeHeader({ title = '', signedIn = false, csrfToken, user }) {
-    const [loading, setLoading] = useState(false)
     if (signedIn) {
         return (
             <div className={headerStyles.headerContainer}>
@@ -13,27 +13,24 @@ export function HomeHeader({ title = '', signedIn = false, csrfToken, user }) {
                 <div className={headerStyles.headerTitle}>{title}</div>
                 <div className={headerStyles.headerButtons}>
                     <AccountDropdown signOut={async () => {
-                        setLoading(true)
-                        setTimeout(async () => {
-                            const res = await useRefetchToken(async () => {
-                                return await fetch('http://localhost:3000/api/v1/auth/account/signout', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Authorization': 'Bearer ' + Cookies.get('accessToken'),
-                                        'CSRF-Token': csrfToken,
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        refreshToken: Cookies.get('refreshToken')
-                                    })
-                                }).catch(err => console.log(err))
-                            })
-                            if (res.status === 200) {
-                                Cookies.set('accessToken', 'deleted', { expires: 0 })
-                                Cookies.set('refreshToken', 'deleted', { expires: 0 })
-                                window.location.reload()
-                            }
-                        }, 500);
+                        const res = await useRefetchToken(async () => {
+                            return await fetch('http://localhost:3000/api/v1/auth/account/signout', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': 'Bearer ' + Cookies.get('accessToken'),
+                                    'CSRF-Token': csrfToken,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    refreshToken: Cookies.get('refreshToken')
+                                })
+                            }).catch(err => console.log(err))
+                        })
+                        if (res.status === 200) {
+                            Cookies.set('accessToken', 'deleted', { expires: 0 })
+                            Cookies.set('refreshToken', 'deleted', { expires: 0 })
+                            window.location.reload()
+                        }
                     }} username={user.username} />
                 </div>
             </div>

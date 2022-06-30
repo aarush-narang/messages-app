@@ -13,7 +13,7 @@
     justify-content: center;
     
     min-width: min-content;
-    width: 80%;
+    width: 100%;
     max-width: 700px;
     margin: auto;
 
@@ -36,18 +36,18 @@
 
 .inputs_container>div {
     min-width: min-content;
-    width: 60%;
+    width: 100%;
+    max-width: 400px;
     height: 100%;
 }
 
 .form_helpers {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     text-align: center;
 
     min-width: min-content;
-    width: 60%;
     
     font-size: 75%;
     color: var(--font-color);
@@ -79,8 +79,8 @@
     transition: 150ms ease;
 
     min-width: 170px;
-    width: 60%;
-    max-width: 500px;
+    width: 100%;
+    max-width: 400px;
     height: 60px;
 }
 

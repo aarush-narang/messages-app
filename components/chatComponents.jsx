@@ -1,32 +1,39 @@
 // Styles
-import chatStyles from "../../styles/ChatStyles/ChatComponentStyles.module.css";
-import groupStyles from "../../styles/ChatStyles/GroupComponentStyles.module.css";
-import friendStyles from "../../styles/ChatStyles/FriendComponentsStyles.module.css";
-import fileStyles from "../../styles/FileViews/FileViews.module.css";
+import chatStyles from "../styles/ChatStyles/ChatComponentStyles.module.css";
+import groupStyles from "../styles/ChatStyles/GroupComponentStyles.module.css";
+import friendStyles from "../styles/ChatStyles/FriendComponentsStyles.module.css";
+import fileStyles from "../styles/FileViews/FileViews.module.css";
+import modalStyles from "../styles/ChatStyles/ModalComponentStyles.module.css";
 // Util + React Hooks + Components
-import { useState, useEffect, useRef } from "react";
-import { useDebounce, shortenName, formatBytes, shortenFileName, calculateFileSize, downloadBase64File, formatDuration, gcd, formatMessageInput } from "./util";
-import { Spinner } from "./formComponents";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useDebounce, shortenName, formatBytes, calculateFileSize } from "./util";
+import { MultiSelect, Spinner } from "./formComponents";
 import { AttachedFileView, AudioFileView, DefaultFileView, ImageFileView, TextFileView, VideoFileView } from './fileViewComponents'
 // Util Packages
 import jsCookie from "js-cookie";
 import moment from "moment";
 
 const SPINNER_COLOR = '#2e8283'
-const MAX_FILE_SIZE_BYTES = 50 * (1024 * 1024); // 50 MB in bytes
-const MAX_MESSAGE_LEN = 6000
-
+export const MAX_FILE_SIZE_BYTES = 50 * (1024 * 1024); // 50 MB in bytes
+export const MAX_MESSAGE_LEN = 6000
+export const MINIMUM_GROUP_NAME_LENGTH = 5
+export const MINIMUM_GROUP_MEMBERS_SELECTED = 1
+export const MAXIMUM_GROUP_NAME_LENGTH = 20
 // Main Components For Chat
-export function GroupsComponent({ groups, csrfToken, currentGroup, userState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
-    if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) { // if current group is not in groups, render spinner
-        return (
-            <PageLoading />
-        )
+export function GroupsComponent({ groupsState, currentGroupId, userState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState, setFullModalState, friendsOptions }) {
+    const [groups, _setGroups] = groupsState
+    const groupsRef = useRef(groups).current
+    const setGroups = (data) => {
+        _setGroups(data)
+        groupsRef = data
     }
-    groups.sort((a, b) => a.order - b.order)
-
+    const currentGroup = useMemo(() => groups.find(group => group.id == currentGroupId), [groups, groupsRef, currentGroupId])
 
     const [user, setUser] = userState
+
+    const [setModalState, setModalContent] = setFullModalState
+    const createGroupNameRef = useRef(null)
+    const createGroupMembers = useRef([])
 
     // start the groups menu open or closed
     const [menuState, setMenuState] = useState(false); // true = closed, false = open
@@ -34,7 +41,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
     // Tab States
     const [tabState, setTabState] = useState('groups'); // groups or friends
     const [friendsTabState, setFriendsTabState] = useState('current'); // current, pending, or outgoing
-    const addFriendsTxtboxRef = useRef(null);
+    const addFriendsTextboxRef = useRef(null);
 
     useEffect(() => {
         setMenuState(window.innerWidth < 900)
@@ -44,6 +51,87 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
         socket.on('friendRequest-client', (data) => {
             const newUserData = data.data
             setUser({ ...user, friends: newUserData })
+        })
+        socket.on('groupCreate-client', (data) => {
+            const newGroup = data.newGroup
+            setGroups(groupsRef.concat(newGroup))
+        })
+        socket.on('groupEdit-client', (data) => {
+            const newGroup = data.newGroup
+            const groupId = newGroup.id
+
+            setGroups(groupsRef.map(group => {
+                if (group.id == groupId) {
+                    return newGroup
+                }
+                return group
+            }))
+        })
+        socket.on('groupJoin-client', (data) => {
+            const newGroup = data.newGroup
+            if (groupsRef.find(group => group.id == newGroup.id)) {
+                setGroups(groupsRef.map(group => {
+                    if (group.id == newGroup.id) {
+                        return newGroup
+                    }
+                    return group
+                }))
+            } else {
+                setGroups(groupsRef.concat(newGroup))
+            }
+        })
+        socket.on('groupLeave-client', (data) => {
+            ctxMenu[1](null)
+            ctxMenuData[1](null)
+            setModalState(false)
+            const owner = data.owner
+            const groupId = data.groupId
+            const newMembers = data.members
+            const leaveUserId = data.userId
+
+            for (const group of groupsRef) {
+                if (group.id == groupId) {
+                    if (user.uid == leaveUserId) {
+                        if (history.state.currentGroup && history.state.currentGroup.id == groupId) { // if the group that was left was selected, group select page
+                            history.pushState({ currentGroup: null }, null, '/')
+                            dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
+                        }
+                        setGroups(groupsRef.filter(group => group.id != groupId))
+                    } else {
+                        setGroups(groupsRef.map(group => {
+                            if (group.id == groupId) {
+                                return { ...group, members: newMembers, owner: owner ? owner : group.owner }
+                            } else {
+                                return group
+                            }
+                        }))
+                    }
+                }
+            }
+        })
+        socket.on('groupDelete-client', (data) => {
+            ctxMenu[1](null)
+            ctxMenuData[1](null)
+            setModalState(false)
+            const groupId = data.groupId
+
+            setGroups(groupsRef.filter(group => group.id != groupId))
+            if (history.state.currentGroup && history.state.currentGroup.id == groupId) { // if the group that was left was selected, group select page
+                history.pushState({ currentGroup: null }, null, `/`)
+                dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
+            }
+        })
+        socket.on('groupOwnerChange-client', (data) => {
+            const groupId = data.groupId
+            const newOwner = data.newOwner
+
+            setGroups(groupsRef.map(group => {
+                if (group.id == groupId) {
+                    return { ...group, owner: newOwner }
+                } else {
+                    return group
+                }
+            }))
         })
     }, [])
 
@@ -108,7 +196,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                 }
             }, { offset: Number.NEGATIVE_INFINITY }).element
         }
-    }, [tabState])
+    }, [tabState, groups])
 
     return (
         <div
@@ -121,8 +209,8 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                 overflow: 'hidden',
             }}
         >
-            <div className={groupStyles.groupsContainer} style={{ opacity: `${menuState ? '0' : '1'}`, gridTemplateRows: tabState.toLowerCase() == 'groups' ? '40px 1fr 100px' : '40px 38px 40px 1fr 100px' }}>
-                <div className={groupStyles.groupTabSwitchContainer} style={{ width: `${menuState ? '0px' : '100%'}` }}>
+            <div className={groupStyles.groupsContainer} style={{ opacity: `${menuState ? '0' : '1'}`, width: `${menuState ? '0px' : '100%'}`, pointerEvents: menuState ? 'none' : 'all' }}>
+                <div className={groupStyles.groupTabSwitchContainer}>
                     <button className={groupStyles.groupTabSwitch} data-selected={tabState.toLowerCase() == 'groups'}
                         onClick={() => setTabState('groups')}
                     >Groups</button>
@@ -132,79 +220,76 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                 </div>
                 {
                     tabState.toLowerCase() == 'groups' ?
-                        <div className={groupStyles.groups} style={{ opacity: menuState ? '0' : '1', width: `${menuState ? '0px' : '100%'}` }}>
+                        <div className={groupStyles.groups}>
                             {
                                 groups.length > 0 ?
                                     groups.map(group => {
-                                        return (
-                                            // group container
-                                            <Group key={group.id} group={group} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
-                                        )
+                                        if (group.members.find(member => member.uid == user.uid)) {
+                                            return (
+                                                // group container
+                                                <Group key={group.id} group={group} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                            )
+                                        }
                                     }) :
                                     <div className={groupStyles.noGroupsContainer}>
-                                        <div></div>
                                         <h2 style={{ textAlign: 'center' }}>No Direct Messages or Groups created/joined</h2>
-                                        <div className={groupStyles.joinGroup} onClick={() => {
-                                            // TODO: pop up a modal to create a group or to create a dm
-                                        }}>control_point</div>
-                                        <div></div>
                                     </div>
                             }
                         </div>
                         :
                         <>
-                            <div className={groupStyles.friendsHeader}>
-                                <form className={groupStyles.friendsHeaderForm}
-                                    onSubmit={(e) => {
-                                        e.preventDefault()
-                                        const formData = new FormData(e.target)
-                                        const friend = formData.get('friends_search')
-                                        e.target.reset()
-                                        addFriendsTxtboxRef.current.focus()
-                                        if (friend.length == 0) return
-                                        if (friend.slice(1) == user.username || friend == user.uid) return setNotificationState({ state: 'error', data: { message: 'You cannot add yourself' } })
+                            <div>
+                                <div className={groupStyles.friendsHeader}>
+                                    <form className={groupStyles.friendsHeaderForm}
+                                        onSubmit={(e) => {
+                                            e.preventDefault()
+                                            const formData = new FormData(e.target)
+                                            const friend = formData.get('friends_search')
+                                            e.target.reset()
+                                            addFriendsTextboxRef.current.focus()
+                                            if (friend.length == 0) return
+                                            if (friend.slice(1) == user.username || friend == user.uid) return setNotificationState({ state: 'error', data: { message: 'You cannot add yourself' } })
 
-                                        const friendReq = {}
-                                        if (friend.includes('@')) { // username
-                                            friendReq.username = friend.slice(1)
-                                        } else {
-                                            friendReq.uid = parseInt(friend)
-                                        }
-                                        socket.emit('friendRequest-server', { accessToken: jsCookie.get('accessToken'), friend: friendReq }, (data) => {
-                                            if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
-                                            else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
-                                            else setNotificationState({ state: 'success', data: { message: data.success } })
-                                        })
-                                    }}
-                                >
-                                    <input
-                                        className={groupStyles.searchFriendsInput}
-                                        placeholder="Add with @username or by user ID"
-                                        type="text"
-                                        name="friends_search"
-                                        autoCapitalize="none"
-                                        autoComplete="off"
-                                        autoCorrect="off"
-                                        spellCheck="false"
-                                        ref={addFriendsTxtboxRef}
-                                    />
-                                    <button className={groupStyles.addFriendsButton} type={"submit"}>person_add</button>
-                                </form>
+                                            const friendReq = {}
+                                            if (friend.includes('@')) { // username
+                                                friendReq.username = friend.slice(1)
+                                            } else {
+                                                friendReq.uid = parseInt(friend)
+                                            }
+                                            socket.emit('friendRequest-server', { accessToken: jsCookie.get('accessToken'), friend: friendReq }, (data) => {
+                                                if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
+                                                else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
+                                                else setNotificationState({ state: 'success', data: { message: data.success } })
+                                            })
+                                        }}
+                                    >
+                                        <input
+                                            className={groupStyles.searchFriendsInput}
+                                            placeholder="Add with @username or by user ID"
+                                            type="text"
+                                            name="friends_search"
+                                            autoCapitalize="none"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck="false"
+                                            ref={addFriendsTextboxRef}
+                                        />
+                                        <button className={groupStyles.addFriendsButton} type={"submit"}>person_add</button>
+                                    </form>
+                                </div>
+                                <div className={groupStyles.groupTabSwitchContainer}>
+                                    <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'current'}
+                                        onClick={() => setFriendsTabState('current')}
+                                    >Current</button>
+                                    <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'pending'}
+                                        onClick={() => setFriendsTabState('pending')}
+                                    >Pending</button>
+                                    <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'outgoing'}
+                                        onClick={() => setFriendsTabState('outgoing')}
+                                    >Outgoing</button>
+                                </div>
                             </div>
-                            <div className={groupStyles.groupTabSwitchContainer} style={{ width: `${menuState ? '0px' : '100%'}` }}>
-                                <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'current'}
-                                    onClick={() => setFriendsTabState('current')}
-                                >Current</button>
-                                <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'pending'}
-                                    onClick={() => setFriendsTabState('pending')}
-                                >Pending</button>
-                                <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'outgoing'}
-                                    onClick={() => setFriendsTabState('outgoing')}
-                                >Outgoing</button>
-                            </div>
-                            <div className={groupStyles.friends} style={{ opacity: menuState ? '0' : '1', width: `${menuState ? '0px' : '100%'}` }}>
-
-                                {/* <div className={groupStyles.friendsContainer}> */}
+                            <div className={groupStyles.friends}>
                                 {
                                     friendsTabState.toLowerCase() == 'current' ?
                                         user.friends.current.length > 0 ?
@@ -220,7 +305,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                                                 )
                                             }) :
                                             <div className={groupStyles.noFriendsContainer}>
-                                                Oh no, you have no friends added! Go to the <a onClick={() => addFriendsTxtboxRef.current.focus()}>textbox</a> above and add somebody!
+                                                Oh no, you have no friends added! Go to the <a onClick={() => addFriendsTextboxRef.current.focus()}>textbox</a> above and add somebody!
                                             </div>
                                         :
                                         friendsTabState.toLowerCase() == 'pending' ?
@@ -258,22 +343,85 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
                                                         )
                                                     }) :
                                                     <div className={groupStyles.noFriendsContainer}>
-                                                        You have no outgoing friend requests. Go to the <a onClick={() => addFriendsTxtboxRef.current.focus()}>textbox</a> above and add somebody!
+                                                        You have no outgoing friend requests. Go to the <a onClick={() => addFriendsTextboxRef.current.focus()}>textbox</a> above and add somebody!
                                                     </div>
                                                 :
                                                 null
                                 }
-                                {/* </div> */}
                             </div>
                         </>
                 }
                 {
-                    groups.length > 0 ?
-                        <div style={{ display: `${menuState ? 'none' : 'flex'}`, justifyContent: 'center' }}>
-                            <div className={groupStyles.joinGroup} style={{ marginTop: '20px', fontSize: '50px' }} onClick={() => {
+                    groups.length >= 0 && tabState == 'groups' ?
+                        <div className={groupStyles.joinGroupContainer}>
+                            <div className={groupStyles.joinGroup} onClick={() => {
                                 // TODO: pop up a modal to create a group or to create a dm
-                            }}>control_point</div>
-                        </div> :
+                                setModalState(true)
+                                setModalContent(
+                                    <>
+                                        <form
+                                            className={modalStyles.modalContainer}
+                                            onSubmit={(e) => {
+                                                e.preventDefault()
+                                                if (createGroupNameRef.current.value.length < MINIMUM_GROUP_NAME_LENGTH || createGroupNameRef.current.value.length > MAXIMUM_GROUP_NAME_LENGTH) {
+                                                    setNotificationState({ state: 'error', data: { message: `Please enter a name with at least ${MINIMUM_GROUP_NAME_LENGTH} characters and at most ${MAXIMUM_GROUP_NAME_LENGTH}.` } })
+                                                }
+                                                else if (createGroupMembers.current.length < MINIMUM_GROUP_MEMBERS_SELECTED) {
+                                                    setNotificationState({ state: 'error', data: { message: `Please select at least ${MINIMUM_GROUP_MEMBERS_SELECTED} friend to add.` } })
+                                                }
+                                                else {
+                                                    const newGroupName = createGroupNameRef.current.value
+                                                    const newGroupMembers = createGroupMembers.current.map(member => member.data.uid)
+
+                                                    socket.emit('groupCreate-server', { newGroupName, newGroupMembers, accessToken: jsCookie.get('accessToken') }, (status) => {
+                                                        if (status.success) {
+                                                            setNotificationState({ state: 'success', data: { message: `Group "${newGroupName}" created!` } })
+                                                        }
+                                                        else {
+                                                            setNotificationState({ state: 'error', data: { message: status.message } })
+                                                        }
+                                                    })
+
+                                                    setModalState(false)
+                                                    createGroupMembers.current = []
+                                                }
+                                            }}
+                                        >
+                                            <div className={modalStyles.modalHeader}>
+                                                <div className={modalStyles.modalTitle}>Create A Group</div>
+                                                <div className={modalStyles.leaveModalDescription}>
+                                                    Create a group to send messages to your friends.
+                                                </div>
+                                            </div>
+                                            <div className={modalStyles.modalInput}>
+                                                <label htmlFor="groupName" className={modalStyles.modalSuccessText}>Enter the name for the group.</label>
+                                                <input name="groupName" id="groupName" type="text" placeholder={"Enter a group name..."} autoComplete="off" ref={createGroupNameRef} />
+                                            </div>
+                                            <div className={modalStyles.modalInput}>
+                                                <label htmlFor="groupName" className={modalStyles.modalSuccessText}>Select the friends you want to add.</label>
+                                                <MultiSelect
+                                                    options={friendsOptions}
+                                                    onChange={(data) => {
+                                                        createGroupMembers.current = data
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className={modalStyles.modalButtons}>
+                                                <button className={modalStyles.modalButton}
+                                                    onClick={() => {
+                                                        setModalState(false)
+                                                        createGroupMembers.current = []
+                                                    }}
+                                                    type={"button"}
+                                                >Cancel</button>
+                                                <button className={`${modalStyles.modalButton} ${modalStyles.modalBtnSuccess}`} type={'submit'}>Create Group</button>
+                                            </div>
+                                        </form>
+                                    </>
+                                )
+                            }}>add_circle</div>
+                        </div>
+                        :
                         null
 
                 }
@@ -288,7 +436,7 @@ export function GroupsComponent({ groups, csrfToken, currentGroup, userState, so
 }
 export function CurrentFriend({ friend, groups, socket, setNotificationState }) {
     const mutualGroupIcons = groups.filter(group => {
-        if (group.members.includes(friend.uid)) {
+        if (group.members.find(member => member.uid == friend.uid)) {
             return {
                 icon: group.icon,
                 name: group.name
@@ -351,7 +499,7 @@ export function CurrentFriend({ friend, groups, socket, setNotificationState }) 
 }
 export function PendingFriend({ friend, groups, socket, setNotificationState }) {
     const mutualGroupIcons = groups.filter(group => {
-        if (group.members.includes(friend.uid)) {
+        if (group.members.find(member => member.uid == friend.uid)) {
             return {
                 icon: group.icon,
                 name: group.name
@@ -403,7 +551,7 @@ export function PendingFriend({ friend, groups, socket, setNotificationState }) 
 }
 export function OutgoingFriend({ friend, groups, socket, setNotificationState }) {
     const mutualGroupIcons = groups.filter(group => {
-        if (group.members.includes(friend.uid)) {
+        if (group.members.find(member => member.uid == friend.uid)) {
             return {
                 icon: group.icon,
                 name: group.name
@@ -462,7 +610,7 @@ export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData })
                     dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
                 } else {
                     history.pushState({ currentGroup: group }, null, `/groups/${group.id}`)
-                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group } }))
+                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group.id } }))
                 }
 
             }}
@@ -479,7 +627,7 @@ export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData })
 
                 setContextMenu(contextType)
                 setContextMenuPos({ x: clientX, y: clientY })
-                setContextMenuData({ id: group.id })
+                setContextMenuData({ groupId: group.id })
             }}
         >
             <div className={groupStyles.groupImage}>
@@ -493,13 +641,14 @@ export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData })
         </div>
     )
 }
-export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
-    if (currentGroup && !(groups.find(group => group.id == currentGroup.id))) {
+export function ChatComponent({ groups, currentGroupId, user, msgsState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
+    if (currentGroupId && !(groups.find(group => group.id == currentGroupId))) {
         return (
-            <PageLoading />
+            <></>
         )
     }
-    if (!currentGroup) return <NoGroupSelected />
+    if (!currentGroupId) return <NoGroupSelected />
+    const currentGroup = useMemo(() => groups.find(group => group.id == currentGroupId), [groups, currentGroupId])
     const [attachedFiles, _setAttachedFiles] = useState([]) // images to be uploaded
     const attachedFilesRef = useRef(attachedFiles)
     const setAttachedFiles = (files) => {
@@ -518,11 +667,12 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         messagesRef.current = msgs
         _setMessages(msgs)
     }
+    const messageInputRef = useRef(null)
+    const messageSubmitRef = useRef(null)
     function scrollMessagesDiv(pos = null) {
         const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
         msgsContainer.scrollTo(null, pos ? pos : msgsContainer.scrollHeight)
     }
-
 
     useEffect(async () => {
         if (!messages.find(grp => grp.id === currentGroup.id) && !msgsLoading.includes(currentGroup.id)) {
@@ -553,11 +703,13 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                     const newMsgsObj = [{ messages: newAppendedMessages, id: currentGroup.id }].concat(messagesRef.current.filter(grp => grp.id !== currentGroup.id))
 
                     // set top element in messages viewport 
-                    const msgs = msgsContainer.querySelectorAll(`.${chatStyles.message}`)
+                    const msgs = msgsContainer.querySelectorAll(`[id]`)
                     if (msgs) {
                         const topMsg = [...msgs].find(msg => msg.getBoundingClientRect().top > 0)
-                        topMsg.ref = topEl
-                        topEl.current = topMsg
+                        if (topMsg) {
+                            topMsg.ref = topEl
+                            topEl.current = topMsg
+                        }
                     }
 
                     // set the new messages + the old messages
@@ -575,9 +727,9 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
         if (messages.length <= 0) return;
         socket.on('messageCreate-client', (msg) => {
             const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
-            const scrollCond = msgsContainer.scrollTop == msgsContainer.scrollHeight - msgsContainer.clientHeight
+            const scrollCond = msgsContainer ? msgsContainer.scrollTop == msgsContainer.scrollHeight - msgsContainer.clientHeight : false
 
-            const files = msg.message.message.files
+            const files = msg.message.message.attachments
             if (files) {
                 // convert array buffer files to base64
                 for (let i = 0; i < files.length; i++) {
@@ -595,7 +747,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
             setMessages(newMsgsObj)
 
             // if the message is in the current group and the chat is scrolled to the bottom or if the message is from the user
-            if ((currentGroup.id == msg.groupId && scrollCond) || msg.message.author.uid == user.uid) {
+            if ((currentGroup.id == msg.groupId && scrollCond) || (msg.message.author && msg.message.author.uid == user.uid)) {
                 scrollMessagesDiv()
             }
         })
@@ -686,7 +838,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                 setTimeout(function () {
                     setDragTransitioning(false)
                     setDragState(true)
-                }, 1);
+                }, 0.001);
             }}
             onDragLeave={(e) => {
                 e.preventDefault();
@@ -749,9 +901,15 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                 {
                     messagesRef.current.find(grp => grp.id === currentGroup.id) ?
                         messagesRef.current.find(grp => grp.id === currentGroup.id).messages.map(message => {
-                            return (
-                                <Message key={message.id} message={message} user={user} socket={socket} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} currentGroup={currentGroup} setNotificationState={setNotificationState} />
-                            )
+                            if (!message.system) {
+                                return (
+                                    <Message key={message.id} message={message} user={user} socket={socket} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} currentGroup={currentGroup} setNotificationState={setNotificationState} />
+                                )
+                            } else {
+                                return (
+                                    <SystemMessage key={message.id} message={message} user={user} socket={socket} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} currentGroup={currentGroup} setNotificationState={setNotificationState} />
+                                )
+                            }
                         }) :
                         <div className={chatStyles.msgsLoading}>
                             <Spinner width={'40px'} height={'40px'} color={SPINNER_COLOR} thickness={'5px'} />
@@ -814,7 +972,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                             }
                         })
                         const formDataObj = {
-                            files: formFiles,
+                            attachments: formFiles,
                             content: msgInput.innerText
                         }
 
@@ -823,7 +981,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         // confirm message length
                         if (formDataObj.content.length > MAX_MESSAGE_LEN) {
                             return setNotificationState({ state: 'error', data: { message: 'Your message is too long!' } })
-                        } else if (formDataObj.content.trim().length === 0 && formDataObj.files.length === 0) {
+                        } else if (formDataObj.content.trim().length === 0 && formDataObj.attachments.length === 0) {
                             return
                         }
                         formDataObj.content = formDataObj.content.trim()
@@ -850,16 +1008,16 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                         <label htmlFor={"file-upload"} className={chatStyles.fileUpload}>
                             file_upload
                         </label>
-                        <button type={"submit"} className={chatStyles.messageInputSubmit} data-messagesubmit>send</button>
+                        <button type={"submit"} className={chatStyles.messageInputSubmit} ref={messageSubmitRef}>send</button>
                     </div>
 
                     <div className={chatStyles.messageTextContainer} data-length="0" data-overflow=""
                         onClick={(e) => {
-                            document.querySelector('[role="textbox"]').focus()
+                            messageInputRef.current.focus()
                         }}
                     >
                         <div className={chatStyles.contentEditableMessageAreaContainer}>
-                            <div data-name={'content'} className={chatStyles.contentEditableMessageArea} contentEditable={true} role="textbox" data-placeholder={`Message ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
+                            <div data-name={'content'} className={chatStyles.contentEditableMessageArea} ref={messageInputRef} contentEditable={true} role="textbox" data-placeholder={`Message ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
                                 onPaste={(e) => {
                                     e.preventDefault()
                                     handleFileInput(e.clipboardData.files)
@@ -895,7 +1053,7 @@ export function ChatComponent({ groups, csrfToken, currentGroup, user, msgsState
                                 onKeyDown={(e) => {
                                     if (e.key == 'Enter' && !e.shiftKey) {
                                         e.preventDefault()
-                                        document.querySelector('[data-messagesubmit="true"]').click() // submit form
+                                        messageSubmitRef.current.click() // submit form
                                         return
                                     }
                                 }}
@@ -952,13 +1110,35 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
         setContextMenuPos({ x, y })
         setContextMenuData({ id: message.id, target: mainTarget, setMessageEdit })
     }
+    function handleContextMenuUser(e, user, x, y) {
+        e.preventDefault()
+        const path = e.nativeEvent.composedPath()
+        const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+        const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+        if (contextType == 'MENU') return
+
+        setContextMenu(contextType)
+        setContextMenuPos({ x, y })
+        setContextMenuData({ user, target: mainTarget })
+    }
 
     return (
         <div id={message.id} data-contexttype="MESSAGE" className={chatStyles.message} data-timestamp={message.createdAt} data-sender={message.author.uid == user.uid}
             onContextMenu={(e) => {
+                const path = e.nativeEvent.composedPath()
+                const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+                const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
                 const clientX = e.clientX
                 const clientY = e.clientY
-                handleContextMenuMessage(e, message, clientX, clientY)
+
+                if (contextType == 'MESSAGE') {
+                    handleContextMenuMessage(e, message, clientX, clientY)
+                }
+                else if (contextType == 'USER') {
+                    handleContextMenuUser(e, message.author, clientX, clientY)
+                }
             }}
         >
             <img data-contexttype="USER" className={chatStyles.messageIcon} src={message.author.icon} loading={"lazy"} alt={`${message.author.username}'s icon`} />
@@ -968,7 +1148,9 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                     <h4 className={chatStyles.messageAuthor} data-contexttype="USER">{message.author.username}</h4>
                     <div className={chatStyles.messageInfo}>
                         <div className={chatStyles.messageInfoSect}>
-                            <span className={chatStyles.messageTS} title={moment(message.createdAt).format('llll')}>{moment(message.createdAt).fromNow()}</span>
+                            <span className={chatStyles.messageTS} title={moment(message.createdAt).format('llll')}>{
+                                moment(Date.now()).diff(message.createdAt, 'months', true) > 1 ? moment(message.createdAt).format('l') : moment(message.createdAt).fromNow()
+                            }</span>
                             <span className={chatStyles.messageEdited} title={"This message was edited."}>{message.edited ? '(edited)' : ''}</span>
                         </div>
                         <span className={chatStyles.messageOptions} data-contexttype={"MESSAGE"} data-type={'OPTIONS'}
@@ -1044,7 +1226,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                     </div>
                     <div className={fileStyles.messageFiles}>
                         {
-                            message.message.files.map((fileInfo, i) => {
+                            message.message.attachments.map((fileInfo, i) => {
                                 const data = Buffer.isBuffer(fileInfo.data) ? fileInfo.data.toString('base64') : fileInfo.data
                                 const fileSize = data ? calculateFileSize(data) : 0
                                 const name = fileInfo.name
@@ -1116,6 +1298,84 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                         }
                     </div>
                 </div>
+            </div>
+        </div>
+    )
+}
+export function SystemMessage({ message, user, currentGroup, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
+    const [contextMenu, setContextMenu] = ctxMenu
+    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
+    const [contextMenuData, setContextMenuData] = ctxMenuData
+    function handleContextMenuUser(e, user) {
+        e.preventDefault()
+        const path = e.nativeEvent.composedPath()
+        const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+        const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+        if (contextType == 'MENU') return
+
+        const x = e.clientX
+        const y = e.clientY
+
+
+        if (contextType == 'USER') {
+            setContextMenu('USER')
+            setContextMenuData({ user, target: mainTarget })
+        } else if (contextType == 'USER_MANAGER') {
+            setContextMenu('USER')
+            setContextMenuData({ user: user.manager, target: mainTarget })
+        }
+
+        setContextMenuPos({ x, y })
+    }
+
+    const currentUser = message.message.data.uid == user.uid
+    const currentManager = message.message.data.manager ? message.message.data.manager.uid == user.uid : null
+
+    return (
+        <div id={message.id} className={chatStyles.systemMessage} data-timestamp={message.createdAt} data-sender={'system'}
+            onContextMenu={(e) => {
+                handleContextMenuUser(e, message.message.data)
+            }}
+        >
+            <div className={chatStyles.systemMessageMain}>
+                {
+                    message.message.type === 'add' ?
+                        <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconSuccess}`}>person_add</i> :
+                        message.message.type === 'leave' ?
+                            <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconErr}`}>arrow_back</i> :
+                            message.message.type === 'remove' ?
+                                <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconErr}`}>person_remove</i> :
+                                message.message.type === 'promote' ?
+                                    <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconSuccess}`}>add_moderator</i> :
+                                    message.message.type === 'edit-name' ?
+                                        <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconWarn}`}>edit</i> :
+                                        message.message.type === 'edit-icon' ?
+                                            <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconWarn}`}>image</i> :
+                                            <i className={`${chatStyles.systemMessageIcon} ${chatStyles.systemMessageIconWarn}`}>info</i>
+                }
+                <div className={chatStyles.systemMessageContent}>
+                    {
+                        message.message.type === 'add' ?
+                            <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> {currentUser ? 'were' : 'was'} added to the group by <b data-contexttype="USER_MANAGER">{currentManager ? 'you' : `@${message.message.data.manager.username}`}</b></> :
+                            message.message.type === 'leave' ?
+                                <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> left the group.</> :
+                                message.message.type === 'remove' ?
+                                    <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> {currentUser ? 'were' : 'was'} removed from the group by <b data-contexttype="USER_MANAGER">{currentManager ? 'you' : `@${message.message.data.manager.username}`}</b></> :
+                                    message.message.type === 'promote' ?
+                                        <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> {currentUser ? 'were' : 'was'} promoted to owner by <b data-contexttype="USER_MANAGER">{currentManager ? 'you' : `@${message.message.data.manager.username}`}</b></> :
+                                        message.message.type === 'edit-name' ?
+                                            <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> updated the group name from "<b>{message.message.data.oldName}</b>" to "<b>{message.message.data.newName}</b>".</> :
+                                            message.message.type === 'edit-icon' ?
+                                                <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> updated the group icon from <img src={message.message.data.oldIcon} /> to <img src={message.message.data.newIcon} />.</> :
+                                                <><b data-contexttype="USER">{currentUser ? 'you' : `@${message.message.data.username}`}</b> {currentUser ? 'were' : 'was'} updated.</>
+                    }
+                </div>
+            </div>
+            <div className={chatStyles.systemMessageInfo}>
+                <div className={chatStyles.systemMessageTS} title={moment(message.createdAt).format('llll')}>{
+                    moment(Date.now()).diff(message.createdAt, 'months', true) > 1 ? moment(message.createdAt).format('l') : moment(message.createdAt).fromNow()
+                }</div>
             </div>
         </div>
     )

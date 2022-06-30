@@ -19,6 +19,7 @@
 .input:-webkit-autofill:focus,
 .input:-webkit-autofill:active {
     -webkit-box-shadow: 0 0 0 1000px var(--secondary-color) inset !important;
+    box-shadow: 0 0 0 1000px var(--secondary-color) inset !important;
     -webkit-text-fill-color: var(--font-color) !important;
     transition: background-color 5000s ease-in-out 0s;
 }
@@ -33,6 +34,7 @@
 
 .input[data-state="error"] {
     -webkit-box-shadow: 0 0 0 1000px var(--color-error-light) inset !important;
+    box-shadow: 0 0 0 1000px var(--color-error-light) inset !important;
     -webkit-text-fill-color: var(--color-error-dark) !important;
 
     background-color: var(--color-error-light) !important;
@@ -46,6 +48,7 @@
 
 .input[data-state="warning"] {
     -webkit-box-shadow: 0 0 0 1000px var(--color-warning-light) inset !important;
+    box-shadow: 0 0 0 1000px var(--color-warning-light) inset !important;
     -webkit-text-fill-color: var(--color-warning-dark) !important;
 
     background-color: var(--color-warning-light) !important;
@@ -101,4 +104,159 @@
     100% {
         transform: rotate(360deg);
     }
+}
+
+/* Multi Select */
+/* selected */
+.multiSelectContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+.selectedContainer:not(:empty) {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    max-height: 100px;
+    background-color: hsl(185, 100%, 8%);
+    padding: 10px;
+    gap: 4px;
+    border-radius: 5px 5px 0 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+.selectedItem {
+    display: flex;
+    padding: 4px 4px 4px 8px;
+    width: min-content;
+    border-radius: 3px;
+    background-color: hsl(185, 100%, 18%);
+}
+.selectedItemRemoveIcon {
+    cursor: pointer;
+    font-family: var(--symbols-font-family);
+}
+
+/* query */
+.multiSelectInputSearchContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+.multiSelectInputSearch {
+    border: none;
+    outline: none;
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px 5px 0 0;
+    font-size: 14px;
+    font-family: Urbanist;
+    color: var(--font-color);
+    background-color: hsl(185, 100%, 8%);
+}
+.multiSelectInputSearch::placeholder {
+    opacity: 0.6;
+    color: var(--font-color);
+    font-family: Urbanist;
+    max-width: 80%;
+}
+.multiSelectInputSearchClearBtn {
+    cursor: pointer;
+    font-family: var(--symbols-font-family);
+    font-size: 18px;
+    color: var(--font-color);
+    position: absolute;
+    right: 10px;
+}
+.selectedContainer:not(:empty) ~ .multiSelectInputSearchContainer > .multiSelectInputSearch {
+    border-radius: 0;
+}
+
+/* options/query results */
+.optionsContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: auto;
+    background-color: hsl(185, 100%, 8%);
+    width: 100%;
+    max-height: 200px;
+    padding: 4px;
+    gap: 2px;
+    border-radius: 0 0 5px 5px;
+}
+.optionsContainer:empty::after {
+    content: "No results.";
+    top: 0;
+    left: 0;
+    text-align: center;
+    width: 100%;
+    padding: 12px 0;
+    font-size: 20px;
+}
+.optionContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-width: max-content;
+    justify-content: space-between;
+    position: relative;
+    cursor: pointer;
+    width: 100%;
+    border-radius: 5px;
+    padding: 8px;
+    gap: 20px;
+    transition: 100ms ease;
+    background-color: hsl(185, 100%, 12%);
+}
+.optionContainer:hover {
+    background-color: hsl(185, 100%, 16%);
+}
+.optionInfo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.optionIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+}
+
+/* checkbox */
+.optionCheck {
+    position: absolute;
+    cursor: pointer;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    margin: 0;
+}
+.customCheckboxContainer {
+    background-color: hsl(185, 100%, 6%);
+    width: 24px;
+    text-align: center;
+    vertical-align: middle;
+    border-radius: 4px;
+}
+.customCheckboxIcon {
+    font-family: var(--symbols-font-family);
+    color: var(--font-color);
+    font-size: 20px;
 }

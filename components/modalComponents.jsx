@@ -1,4 +1,4 @@
-import modalStyles from "../../styles/ChatStyles/ModalComponentStyles.module.css";
+import modalStyles from "../styles/ChatStyles/ModalComponentStyles.module.css";
 import { useState, useEffect } from "react";
 
 // Modals
@@ -34,16 +34,14 @@ export function MiniNotificationModal({ state, setState }) { // click to close, 
         </div>
     )
 }
-export function FullModalWrapper({ state, setState, children }) { // title, content, status
+export function FullModalWrapper({ modalIsOpen, closeModal, children }) {
     return (
-        <div className={modalStyles.fullModalContainer} data-state={state.state}>
-            <div className={modalStyles.fullModalBackground} onClick={() => setState({ state: false, data: state.data })}></div>
+        <div className={modalStyles.fullModalContainer} data-state={modalIsOpen} style={{ opacity: modalIsOpen ? '' : '0', pointerEvents: modalIsOpen ? 'all' : 'none'}}>
+            <div className={modalStyles.fullModalBackground} onClick={closeModal}></div>
             <div className={modalStyles.fullModalContent}>
                 <div className={modalStyles.fullModalClose}>
-                    <div className={modalStyles.fullModalCloseIcon} onClick={() => setState({ state: false, data: state.data })}>close</div>
+                    <div className={modalStyles.fullModalCloseIcon} onClick={closeModal}>close</div>
                 </div>
-                <div className={modalStyles.fullModalTitle}>{state.data ? state.data.title : ''}</div>
-
                 <div className={modalStyles.fullModalChildren}>{children}</div>
             </div>
         </div>

@@ -1,10 +1,10 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
 import styles from "../../styles/FormStyles/Forms.module.css";
-import { PasswordInput, Button, Input, ErrorMessage } from '../components/formComponents'
+import { PasswordInput, Button, Input, ErrorMessage } from '../../components/formComponents'
 import * as cookie from 'cookie'
 import { csrf } from "../../lib/middleware";
-import { FormPagesHeader } from "../components/header";
+import { FormPagesHeader } from "../../components/header";
 
 
 export default function MyAccount({ csrfToken }) {

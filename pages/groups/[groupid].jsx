@@ -1,14 +1,14 @@
 import Head from "next/head";
 import { csrf } from "../../lib/middleware";
-import { FormPagesHeader, HomeHeader } from "../components/header";
-import { GroupsComponent, ChatComponent, PageLoading } from "../components/chatComponents";
-import { FullModalWrapper, MiniNotificationModal } from '../components/modalComponents'
-import { ContextMenu } from '../components/contextMenuComponents'
-import styles from "../../styles/Home.module.css";
+import { FormPagesHeader, HomeHeader } from "../../components/header";
+import { GroupsComponent, ChatComponent, PageLoading } from "../../components/chatComponents";
+import { FullModalWrapper, MiniNotificationModal } from '../../components/modalComponents'
+import { ContextMenu } from '../../components/contextMenuComponents'
+import homeStyles from "../../styles/Home.module.css";
 import * as cookie from 'cookie'
 import { useRouter } from 'next/router'
-import { useState, useEffect } from "react";
-import { useRefetchToken } from "../components/util";
+import { useState, useEffect, useMemo } from "react";
+import { useRefetchToken } from "../../components/util";
 import jsCookie from "js-cookie";
 import io from "socket.io-client";
 
@@ -17,7 +17,7 @@ export default function Groups({ data, csrfToken }) {
         return (
             <>
                 <HomeHeader title={""} signedIn={false} />
-                <div className={styles.container}>
+                <div className={homeStyles.container}>
                     <Head>
                         <title>Messages</title>
                     </Head>
@@ -31,7 +31,7 @@ export default function Groups({ data, csrfToken }) {
         const { groupid } = router.query
 
         // current group chat selected
-        const [currentGroup, setCurrentGroup] = useState(null)
+        const [currentGroupId, setCurrentGroup] = useState(null)
         useEffect(() => {
             window.addEventListener('popstate', (e) => {
                 setCurrentGroup(e.state.currentGroup)
@@ -40,9 +40,23 @@ export default function Groups({ data, csrfToken }) {
 
         // data
         const [groups, setGroups] = useState(null)
+        const currentGroup = useMemo(() => groups ? groups.find(group => group.id === currentGroupId) : null, [groups, currentGroupId])
         const msgsState = useState([])
         const [socket, setSocket] = useState(null); // initialize socket connection to server
         const [user, setUser] = useState(null)
+
+        const friendsOptions = useMemo(() => {
+            return user ? user.friends.current
+                .map((friend) => {
+                    return {
+                        text: friend.username,
+                        data: {
+                            uid: friend.uid,
+                        },
+                        icon: friend.icon
+                    }
+                }) : []
+        }, [user, groups])
 
         // Context Menu States
         const ctxMenu = useState(null)
@@ -50,8 +64,8 @@ export default function Groups({ data, csrfToken }) {
         const ctxMenuData = useState(null)
 
         // Modal States
+        // Notification Modal State
         const [notificationModalState, _setNotificationModalState] = useState({ state: 'null', data: null }) // null = closed, success = green, warning = yellow, error = red
-
         function setNotificationModalState(newData) {
             if (notificationModalState.state != 'null') {
                 _setNotificationModalState({ state: `close ${notificationModalState.state}`, data: notificationModalState.data })
@@ -61,6 +75,22 @@ export default function Groups({ data, csrfToken }) {
             } else {
                 _setNotificationModalState(newData)
             }
+        }
+        // Full Modal State
+        const [fullModalState, _setFullModalState] = useState(false)
+        const [fullModalContent, setFullModalContent] = useState(null)
+        const setFullModalState = (newState) => {
+            if (!newState) {
+                _setFullModalState(false)
+                setTimeout(() => {
+                    setFullModalContent(null)
+                }, 200);
+            } else {
+                _setFullModalState(true)
+            }
+        }
+        const closeModal = () => {
+            setFullModalState(false)
         }
 
         // socket connection
@@ -90,20 +120,18 @@ export default function Groups({ data, csrfToken }) {
                                     window.location.reload()
                                     return
                                 }
-                                setGroups(data.groups)
+                                setGroups(data.groups.sort((a, b) => a.order - b.order))
                                 setUser(data.user)
 
                                 const current = data.groups.find(g => g.id == groupid)
-                                setCurrentGroup(current)
+                                if (current) {
+                                    setCurrentGroup(current.id)
+                                    history.pushState({ currentGroup: current.id }, null, `/groups/${current.id}`)
+                                }
                             })
                         })
-                        socket.on('connection_error', (err) => {
-                            console.log(err)
-                            // failed
+                        socket.on('disconnect', (err) => {
                             setLoading(true)
-                        })
-                        socket.on('disconnect', () => {
-
                         })
                     })
                 }).then(r => {
@@ -122,7 +150,7 @@ export default function Groups({ data, csrfToken }) {
                 <PageLoading />
             )
         }
-        else if (!groups || !user || !(groups.find(group => group.id == groupid))) {
+        else if (!groups || !user) {
             return (
                 <div>
                     <FormPagesHeader />
@@ -131,9 +159,8 @@ export default function Groups({ data, csrfToken }) {
             )
         }
 
-
         return (
-            <div className={styles.contentContainer}
+            <div className={homeStyles.contentContainer}
                 onContextMenu={(e) => { // prevent context menu from showing when messages/groups/users are not clicked
                     e.preventDefault()
 
@@ -147,7 +174,11 @@ export default function Groups({ data, csrfToken }) {
                     }
                 }}
                 onClick={(e) => { // close context menu if it is open
-                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU' && e.target.dataset.type != 'OPTIONS') {
+                    const path = e.nativeEvent.composedPath()
+                    const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+                    const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+                    if (ctxMenu[0] && e.target.dataset.contexttype != 'MENU' && e.target.dataset.type != 'OPTIONS' && contextType != 'OPTIONS') {
                         ctxMenu[1](null)
                         ctxMenuData[1](null)
                     }
@@ -156,25 +187,32 @@ export default function Groups({ data, csrfToken }) {
                 <Head>
                     <title>{currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}</title>
                 </Head>
-                <HomeHeader title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'} signedIn={true} csrfToken={csrfToken} user={user} />
-                <div className={styles.container}>
+                <HomeHeader
+                    title={currentGroup && currentGroup.name ? currentGroup.name : 'Messages'}
+                    signedIn={true}
+                    csrfToken={csrfToken}
+                    user={user}
+                />
+                <div className={homeStyles.container}>
                     {/* group chat selection */}
                     <GroupsComponent
                         csrfToken={csrfToken}
-                        groups={groups}
-                        currentGroup={currentGroup}
+                        groupsState={[groups, setGroups]}
+                        currentGroupId={currentGroupId}
                         userState={[user, setUser]}
                         socket={socket}
                         ctxMenu={ctxMenu}
                         ctxMenuPos={ctxMenuPos}
                         ctxMenuData={ctxMenuData}
                         setNotificationState={setNotificationModalState}
+                        setFullModalState={[setFullModalState, setFullModalContent]}
+                        friendsOptions={friendsOptions}
                     />
                     {/* chat area */}
                     <ChatComponent
                         csrfToken={csrfToken}
                         groups={groups}
-                        currentGroup={currentGroup}
+                        currentGroupId={currentGroupId}
                         user={user}
                         msgsState={msgsState}
                         socket={socket}
@@ -185,21 +223,26 @@ export default function Groups({ data, csrfToken }) {
                     />
                 </div>
                 <ContextMenu
-                    type={ctxMenu[0]}
-                    x={ctxMenuPos[0].x}
-                    y={ctxMenuPos[0].y}
-                    data={ctxMenuData[0]}
+                    ctxMenu={ctxMenu}
+                    ctxMenuPos={ctxMenuPos}
+                    ctxMenuData={ctxMenuData}
                     currentGroup={currentGroup}
                     user={user}
+                    groups={groups}
                     msgsState={msgsState}
                     socket={socket}
                     setNotificationState={setNotificationModalState}
+                    setFullModalState={[setFullModalState, setFullModalContent]}
+                    friendsOptions={friendsOptions}
                 />
                 {
                     !notificationModalState.state.includes('null') ?
                         <MiniNotificationModal state={notificationModalState} setState={setNotificationModalState} />
                         : null
                 }
+                <FullModalWrapper modalIsOpen={fullModalState} closeModal={closeModal}>
+                    {fullModalContent}
+                </FullModalWrapper>
             </div>
         );
     }

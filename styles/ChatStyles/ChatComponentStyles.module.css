@@ -114,45 +114,50 @@
 }
 /* File Button */
 .fileUpload {
-    text-align: center;
-    vertical-align: middle;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     transition: 150ms ease;
     cursor: pointer;
     user-select: none;
 
-    max-width: 40px;
-    aspect-ratio: 1;
+    width: 38px;
+    height: 38px;
     padding: 4px;
 
     background-color: hsl(190, 60%, 15%);
-    font-family: var(--icons-font-family);
-    font-size: 175%;
+    font-family: var(--symbols-font-family);
+    font-size: 28px;
     color: hsl(171, 30%, 61%);
 
     border: none;
     outline: none;
     border-radius: 100%;
-    z-index: 1000;
+    z-index: 2;
 }
 
 /* Message Submit Button */
 .messageInputSubmit {
-    text-align: center;
-    vertical-align: middle;
-    user-select: none;
-    background-color: hsl(190, 60%, 15%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: 150ms ease;
     cursor: pointer;
-    border: none;
-    outline: none;
-    font-family: var(--icons-font-family);
-    font-size: 150%;
+    user-select: none;
+
+    width: 38px;
+    height: 38px;
+    padding: 4px;
+
+    background-color: hsl(190, 60%, 15%);
+    font-family: var(--symbols-font-family);
+    font-size: 24px;
     color: hsl(171, 30%, 61%);
 
+    border: none;
+    outline: none;
     border-radius: 100%;
-    aspect-ratio: 1;
-    max-width: 40px;
-    transition: 150ms ease;
-    z-index: 1000;
+    z-index: 2;
 }
 
 .messageInputSubmit:hover,
@@ -209,8 +214,14 @@
 }
 
 .overflowButton {
-    font-family: var(--icons-font-family);
-    font-size: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--symbols-font-family);
+    font-size: 32px;
+    font-weight: 600;
+    width: 35px;
+    height: 35px;
     color: var(--font-color-secondary);
 }
 
@@ -227,15 +238,79 @@
     margin-top: auto;
 }
 
-.message {
+/* System Messages */
+.systemMessage {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     position: relative;
-    width: 80%;
-    min-width: 300px;
+    min-width: fit-content;
+    user-select: none;
+    width: 100%;
+    padding: 15px;
+    margin-top: 20px;
+    gap: 15px;
+
+    background-color: hsl(191, 85%, 8%);
+    border-radius: 6px;
+
+    color: var(--font-color);
 
     display: flex;
     flex-direction: row;
     align-items: center;
 
+    transition: opacity 160ms ease-in-out;
+}
+.systemMessage:hover {
+    opacity: 0.95;
+}
+.systemMessageMain {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.systemMessageIcon {
+    font-family: var(--symbols-font-family);
+    font-style: normal;
+    font-size: 30px;
+}
+.systemMessageContent b[data-contexttype] {
+    text-decoration: underline;
+}
+.systemMessageContent img {
+    vertical-align: middle;
+    width: 40px;
+    margin: 5px;
+    border-radius: 50%;
+    aspect-ratio: 1;
+}
+.systemMessageTS {
+    min-width: max-content;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--font-color-secondary);
+}
+.systemMessageIconSuccess {
+    color: #9eff95;
+}
+.systemMessageIconWarn {
+    color: #fbff95;
+}
+.systemMessageIconErr {
+    color: #ffa095;
+}
+/* Regular Messages */
+.message {
+    position: relative;
+    width: 80%;
+    min-width: min-content;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 20px;
     padding: 12px 14px 14px 14px;
     transition: opacity 120ms ease-in-out;
 }
@@ -250,6 +325,7 @@
     align-items: center;
     width: 100%;
     padding: 2px 0;
+    gap: 20px;
 }
 
 .messageAuthor {
@@ -270,7 +346,6 @@
     overflow-y: auto;
     overflow-x: hidden;
 }
-
 
 .messageIcon {
     width: 50px;
@@ -338,10 +413,7 @@
 .messageInfo {
     display: flex;
     flex-direction: row;
-}
-
-.messageInfo>*:not(:last-child) {
-    margin-right: 10px;
+    gap: 8px;
 }
 
 .messageInfoSect {
@@ -353,6 +425,7 @@
 
 .messageTS {
     font-size: 12px;
+    width: max-content;
 }
 
 .messageEdited {
@@ -361,12 +434,18 @@
 }
 
 .messageOptions {
-    font-family: var(--icons-font-family);
-    font-size: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--symbols-font-family);
+    font-size: 20px;
+    font-weight: 600;
+    width: 22px;
+    height: 22px;
+
     border: 1px solid;
     border-radius: 100%;
-    width: min-content;
-    height: min-content;
+
     align-self: center;
     cursor: pointer;
     user-select: none;
