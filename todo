@@ -1,16 +1,12 @@
 # PRIORITY:
-- add star icon to groups that are owned by the current user in groups display (easy)
-- when editing message, allows user to save more than 6000 chars but when sending normally, limited to 6000 chars FIX (easy)
-
-- create new page with message id in link to message so that the copy message link works (groups/[groupid]/[messageid]) (medium)
-    - going to have to move all index.jsx and [groupid].jsx code to new main component and use that across all routes
-
+- allow user sign in to be email or username (easy)
 - create myaccount page for: account settings (change password, change email, change username, change avatar, delete account, manage sessions panel, phone #?) (hard)
     - SESSIONS PANEL:
         - create a sessions panel with all open sessions: restore previous sessions if ip is same by refreshing access token?
         come up with ways to remove refresh tokens automatically that are not being used (max number of sessions?)
 
 - remove as much duplicate code as possible
+- remove all queryselectors or get elements by id or class and replace with useref
 
 ## EXTRA:
 - add no more messages label above all messages when max msgs is reached

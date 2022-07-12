@@ -72,7 +72,7 @@ export function AccountDropdown({ signOut, username }) {
                 style={{ borderRadius: open ? '6px 6px 0 0' : '6px' }}
                 onClick={() => setClickOpen(!clickOpen)}
             >
-                <div className={homeStyles.dropdownButtonText}>{shortenName(username, 25)}</div>
+                <div className={homeStyles.dropdownButtonText}>@{shortenName(username, 25)}</div>
                 <div className={homeStyles.dropdownButtonIcon}>account_circle</div>
             </div>
             <ul className={homeStyles.dropdown} style={{ top: open ? '44px' : '40px', opacity: open ? '1' : '0', pointerEvents: open ? 'all' : 'none' }}>

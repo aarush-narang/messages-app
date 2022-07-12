@@ -6,7 +6,7 @@ import fileStyles from "../styles/FileViews/FileViews.module.css";
 import modalStyles from "../styles/ChatStyles/ModalComponentStyles.module.css";
 // Util + React Hooks + Components
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useDebounce, shortenName, formatBytes, calculateFileSize } from "./util";
+import { useDebounce, shortenName, formatBytes, calculateFileSize, useReferredState } from "./util";
 import { MultiSelect, Spinner } from "./formComponents";
 import { AttachedFileView, AudioFileView, DefaultFileView, ImageFileView, TextFileView, VideoFileView } from './fileViewComponents'
 // Util Packages
@@ -20,6 +20,7 @@ export const MINIMUM_GROUP_NAME_LENGTH = 5
 export const MINIMUM_GROUP_MEMBERS_SELECTED = 1
 export const MAXIMUM_GROUP_NAME_LENGTH = 20
 // Main Components For Chat
+// Group Components
 export function GroupsComponent({ groupsState, currentGroupId, userState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState, setFullModalState, friendsOptions }) {
     const [groups, _setGroups] = groupsState
     const groupsRef = useRef(groups).current
@@ -40,7 +41,7 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
 
     // Tab States
     const [tabState, setTabState] = useState('groups'); // groups or friends
-    const [friendsTabState, setFriendsTabState] = useState('current'); // current, pending, or outgoing
+    const [friendsTabState, setFriendsTabState] = useState('current'); // current, incoming, or outgoing
     const addFriendsTextboxRef = useRef(null);
 
     useEffect(() => {
@@ -92,7 +93,7 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
             for (const group of groupsRef) {
                 if (group.id == groupId) {
                     if (user.uid == leaveUserId) {
-                        if (history.state.currentGroup && history.state.currentGroup.id == groupId) { // if the group that was left was selected, group select page
+                        if (history.state.currentGroup && history.state.currentGroup == groupId) { // if the group that was left was selected, group select page
                             history.pushState({ currentGroup: null }, null, '/')
                             dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
                         }
@@ -116,7 +117,7 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
             const groupId = data.groupId
 
             setGroups(groupsRef.filter(group => group.id != groupId))
-            if (history.state.currentGroup && history.state.currentGroup.id == groupId) { // if the group that was left was selected, group select page
+            if (history.state.currentGroup && history.state.currentGroup == groupId) { // if the group that was left was selected, group select page
                 history.pushState({ currentGroup: null }, null, `/`)
                 dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
             }
@@ -227,7 +228,7 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
                                         if (group.members.find(member => member.uid == user.uid)) {
                                             return (
                                                 // group container
-                                                <Group key={group.id} group={group} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
+                                                <Group key={group.id} group={group} user={user} currentGroup={currentGroup} ctxMenu={ctxMenu} ctxMenuPos={ctxMenuPos} ctxMenuData={ctxMenuData} />
                                             )
                                         }
                                     }) :
@@ -281,9 +282,9 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
                                     <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'current'}
                                         onClick={() => setFriendsTabState('current')}
                                     >Current</button>
-                                    <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'pending'}
-                                        onClick={() => setFriendsTabState('pending')}
-                                    >Pending</button>
+                                    <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'incoming'}
+                                        onClick={() => setFriendsTabState('incoming')}
+                                    >Incoming</button>
                                     <button className={groupStyles.groupTabSwitch} data-selected={friendsTabState.toLowerCase() == 'outgoing'}
                                         onClick={() => setFriendsTabState('outgoing')}
                                     >Outgoing</button>
@@ -308,12 +309,12 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
                                                 Oh no, you have no friends added! Go to the <a onClick={() => addFriendsTextboxRef.current.focus()}>textbox</a> above and add somebody!
                                             </div>
                                         :
-                                        friendsTabState.toLowerCase() == 'pending' ?
-                                            user.friends.pending.length > 0 ?
-                                                user.friends.pending.map(friend => {
+                                        friendsTabState.toLowerCase() == 'incoming' ?
+                                            user.friends.incoming.length > 0 ?
+                                                user.friends.incoming.map(friend => {
                                                     return (
                                                         // friend container
-                                                        <PendingFriend
+                                                        <IncomingFriend
                                                             key={friend.uid}
                                                             friend={friend}
                                                             groups={groups}
@@ -324,7 +325,7 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
                                                     )
                                                 }) :
                                                 <div className={groupStyles.noFriendsContainer}>
-                                                    You have no pending friend requests!
+                                                    You have no incoming friend requests!
                                                 </div>
                                             :
                                             friendsTabState.toLowerCase() == 'outgoing' ?
@@ -355,7 +356,6 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
                     groups.length >= 0 && tabState == 'groups' ?
                         <div className={groupStyles.joinGroupContainer}>
                             <div className={groupStyles.joinGroup} onClick={() => {
-                                // TODO: pop up a modal to create a group or to create a dm
                                 setModalState(true)
                                 setModalContent(
                                     <>
@@ -434,6 +434,72 @@ export function GroupsComponent({ groupsState, currentGroupId, userState, socket
         </div>
     );
 }
+export function Group({ group, user, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
+    const [contextMenu, setContextMenu] = ctxMenu
+    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
+    const [contextMenuData, setContextMenuData] = ctxMenuData
+
+    return (
+        <div
+            key={group.id}
+            data-contexttype="GROUP"
+            data-groupid={group.id}
+            data-selected={currentGroup && group.id == currentGroup.id}
+            className={groupStyles.group}
+            draggable
+            onClick={() => {
+                if (currentGroup && group.id == currentGroup.id) {
+                    history.pushState({ currentGroup: null }, null, `/`)
+                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
+                } else {
+                    history.pushState({ currentGroup: group.id }, null, `/groups/${group.id}`)
+                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group.id } }))
+                }
+
+            }}
+            onContextMenu={(e) => {
+                e.preventDefault()
+                const path = e.nativeEvent.composedPath()
+                const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
+                const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
+
+                if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
+
+                const clientX = e.clientX
+                const clientY = e.clientY
+
+                setContextMenu(contextType)
+                setContextMenuPos({ x: clientX, y: clientY })
+                setContextMenuData({ groupId: group.id })
+            }}
+        >
+            <div className={groupStyles.groupImage}>
+                <img title={`${group.name}'s icon`} src={group.icon} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
+            </div>
+            <div className={groupStyles.groupInfo}>
+                <div className={groupStyles.groupTitleContainer}>
+                    <h4 title={group.name} className={groupStyles.groupTitle}>{shortenName(group.name)}</h4>
+                    {
+                        group.owner == user.uid ?
+                            <svg width="20" height="20" viewBox="0 0 16 16">
+                                <path fillRule="evenodd" clipRule="evenodd" d="M13.6572 5.42868C13.8879 5.29002 14.1806 5.30402 14.3973 5.46468C14.6133 5.62602 14.7119 5.90068 14.6473 6.16202L13.3139 11.4954C13.2393 11.7927 12.9726 
+                          12.0007 12.6666 12.0007H3.33325C3.02725 12.0007 2.76058 11.792 2.68592 11.4954L1.35258 6.16202C1.28792 5.90068 1.38658 5.62602 1.60258 5.46468C1.81992 5.30468 
+                          2.11192 5.29068 2.34325 5.42868L5.13192 7.10202L7.44592 3.63068C7.46173 3.60697 7.48377 3.5913 7.50588 3.57559C7.5192 3.56612 7.53255 3.55663 7.54458 3.54535L6.90258 
+                          2.90268C6.77325 2.77335 6.77325 2.56068 6.90258 2.43135L7.76458 1.56935C7.89392 1.44002 8.10658 1.44002 8.23592 1.56935L9.09792 2.43135C9.22725 2.56068 9.22725 2.77335 
+                          9.09792 2.90268L8.45592 3.54535C8.46794 3.55686 8.48154 3.56651 8.49516 3.57618C8.51703 3.5917 8.53897 3.60727 8.55458 3.63068L10.8686 7.10202L13.6572 5.42868ZM2.66667 
+                          12.6673H13.3333V14.0007H2.66667V12.6673Z" fill="currentColor" aria-hidden="true"></path>
+                            </svg>
+                            :
+                            null
+                    }
+                </div>
+                <div title={`Members: ${group.members.length}`} className={groupStyles.numOfMembers}>Members: {group.members.length}</div>
+            </div>
+            <div className={groupStyles.lastMsg}></div>
+        </div>
+    )
+}
+// Friend Components
 export function CurrentFriend({ friend, groups, socket, setNotificationState }) {
     const mutualGroupIcons = groups.filter(group => {
         if (group.members.find(member => member.uid == friend.uid)) {
@@ -497,7 +563,7 @@ export function CurrentFriend({ friend, groups, socket, setNotificationState }) 
         </div>
     )
 }
-export function PendingFriend({ friend, groups, socket, setNotificationState }) {
+export function IncomingFriend({ friend, groups, socket, setNotificationState }) {
     const mutualGroupIcons = groups.filter(group => {
         if (group.members.find(member => member.uid == friend.uid)) {
             return {
@@ -527,7 +593,7 @@ export function PendingFriend({ friend, groups, socket, setNotificationState }) 
                 <div className={friendStyles.friendButtons}>
                     <button className={`${friendStyles.friendButton} ${friendStyles.friendAccept}`} title={`Accept @${friend.username}'s friend request`}
                         onClick={() => {
-                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'accept', state: 'pending' } }, (data) => {
+                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'accept', state: 'incoming' } }, (data) => {
                                 if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
                                 else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
                                 else setNotificationState({ state: 'success', data: { message: data.success } })
@@ -536,7 +602,7 @@ export function PendingFriend({ friend, groups, socket, setNotificationState }) 
                     >check_circle</button>
                     <button className={`${friendStyles.friendButton} ${friendStyles.friendDecline}`} title={`Decline @${friend.username}'s friend request`}
                         onClick={() => {
-                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'decline', state: 'pending' } }, (data) => {
+                            socket.emit('friendRequestManage-server', { accessToken: jsCookie.get('accessToken'), friend, status: { action: 'decline', state: 'incoming' } }, (data) => {
                                 if (data.error) setNotificationState({ state: 'error', data: { message: data.error } })
                                 else if (data.success) setNotificationState({ state: 'success', data: { message: data.success } })
                                 else setNotificationState({ state: 'success', data: { message: data.success } })
@@ -591,63 +657,15 @@ export function OutgoingFriend({ friend, groups, socket, setNotificationState })
         </div>
     )
 }
-export function Group({ group, currentGroup, ctxMenu, ctxMenuPos, ctxMenuData }) {
-    const [contextMenu, setContextMenu] = ctxMenu
-    const [contextMenuPos, setContextMenuPos] = ctxMenuPos
-    const [contextMenuData, setContextMenuData] = ctxMenuData
-
-    return (
-        <div
-            key={group.id}
-            data-contexttype="GROUP"
-            data-groupid={group.id}
-            data-selected={currentGroup && group.id == currentGroup.id}
-            className={groupStyles.group}
-            draggable
-            onClick={() => {
-                if (currentGroup && group.id == currentGroup.id) {
-                    history.pushState({ currentGroup: null }, null, `/`)
-                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: null } }))
-                } else {
-                    history.pushState({ currentGroup: group }, null, `/groups/${group.id}`)
-                    dispatchEvent(new PopStateEvent('popstate', { state: { currentGroup: group.id } }))
-                }
-
-            }}
-            onContextMenu={(e) => {
-                e.preventDefault()
-                const path = e.nativeEvent.composedPath()
-                const mainTarget = path.find(p => p.dataset && p.dataset.contexttype)
-                const contextType = mainTarget ? mainTarget.dataset.contexttype : 'NONE'
-
-                if (contextType == 'MENU') return // if context menu is right-clicked, do nothing
-
-                const clientX = e.clientX
-                const clientY = e.clientY
-
-                setContextMenu(contextType)
-                setContextMenuPos({ x: clientX, y: clientY })
-                setContextMenuData({ groupId: group.id })
-            }}
-        >
-            <div className={groupStyles.groupImage}>
-                <img title={`${group.name}'s icon`} src={group.icon} loading={"lazy"} className={groupStyles.groupImage} alt={`${group.name}'s icon`} />
-            </div>
-            <div className={groupStyles.groupInfo}>
-                <h4 title={group.name} className={groupStyles.groupTitle}>{shortenName(group.name)}</h4>
-                <div title={`Members: ${group.members.length}`} className={groupStyles.numOfMembers}>Members: {group.members.length}</div>
-            </div>
-            <div className={groupStyles.lastMsg}></div>
-        </div>
-    )
-}
-export function ChatComponent({ groups, currentGroupId, user, msgsState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
+// Chat/Message Components
+export function ChatComponent({ groups, currentGroupId, messageId, user, msgsState, socket, ctxMenu, ctxMenuPos, ctxMenuData, setNotificationState }) {
     if (currentGroupId && !(groups.find(group => group.id == currentGroupId))) {
         return (
             <></>
         )
     }
-    if (!currentGroupId) return <NoGroupSelected />
+    if (!currentGroupId) return <NoGroupSelected />;
+
     const currentGroup = useMemo(() => groups.find(group => group.id == currentGroupId), [groups, currentGroupId])
     const [attachedFiles, _setAttachedFiles] = useState([]) // images to be uploaded
     const attachedFilesRef = useRef(attachedFiles)
@@ -667,11 +685,12 @@ export function ChatComponent({ groups, currentGroupId, user, msgsState, socket,
         messagesRef.current = msgs
         _setMessages(msgs)
     }
+    const [messageLinkComplete, setMessageLinkComplete] = useState(false) // if the message that the user is trying to go to has been scrolled to already, don't scroll again
     const messageInputRef = useRef(null)
     const messageSubmitRef = useRef(null)
-    function scrollMessagesDiv(pos = null) {
+    function scrollMessagesDiv(pos = null, behavior) {
         const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
-        msgsContainer.scrollTo(null, pos ? pos : msgsContainer.scrollHeight)
+        msgsContainer.scrollTo({ top: pos ? pos : msgsContainer.scrollHeight, behavior: behavior ? behavior : 'auto' }) // smooth scrolling not working: FIX
     }
 
     useEffect(async () => {
@@ -691,6 +710,31 @@ export function ChatComponent({ groups, currentGroupId, user, msgsState, socket,
         scrollMessagesDiv()
     }, [currentGroup])
     useEffect(scrollMessagesDiv, [msgsLoading && !messages.find(grp => grp.id === currentGroup.id)]) // scroll to bottom when messages load for the first time only
+    
+    // for message links
+    useEffect(() => {
+        // check if messsage has already loaded, if not, send socket message to loadmessages-server to load messages, if it has, scroll to message and add some sort of highlight to the message
+        if(messageLinkComplete) return;
+        const grpMessages = messages.find(grp => grp.id === currentGroup.id)
+        if (grpMessages) {
+            const messageCheck = grpMessages.messages.find(msg => msg.id == messageId)
+            if (messageCheck) {
+                if (messageId) setMsgsLoading([currentGroup.id].concat(msgsLoading))
+                const mId = messageCheck.id
+                const mElement = document.getElementById(mId)
+                if (mElement) {
+                    scrollMessagesDiv(mElement.offsetTop, 'smooth')
+                    setMessageLinkComplete(true)
+                    mElement.classList.add(chatStyles.highlight)
+                    setTimeout(() => {
+                        mElement.classList.remove(chatStyles.highlight)
+                    }, 3000)
+                }
+            } else {
+                if (messageId) setMsgsLoading([currentGroup.id].concat(msgsLoading))
+            }
+        }
+    }, [messageId, messages])
     useEffect(() => {
         const msgsContainer = document.querySelector(`.${chatStyles.messages}`)
         const curGrpMessages = messages.find(grp => grp.id === currentGroup.id)
@@ -721,7 +765,7 @@ export function ChatComponent({ groups, currentGroupId, user, msgsState, socket,
                 setMsgsLoading(msgsLoading.filter(grp => grp !== currentGroup.id))
             })
         }
-    }, [msgsLoading.includes(currentGroup.id)])
+    }, [msgsLoading])
 
     useEffect(() => {
         if (messages.length <= 0) return;
@@ -779,7 +823,7 @@ export function ChatComponent({ groups, currentGroupId, user, msgsState, socket,
                 return grp
             }))
         })
-    }, [messages.length > 0])
+    }, [messages.length])
 
     function handleFileInput(inputFiles) {
         const files = [...attachedFiles, ...inputFiles]
@@ -957,6 +1001,9 @@ export function ChatComponent({ groups, currentGroupId, user, msgsState, socket,
             {/* message input */}
             <div className={chatStyles.messageInputContainer}>
                 <form className={chatStyles.messageInputForm} encType={"multipart/form-data"}
+                    onClick={(e) => {
+                        messageInputRef.current.focus()
+                    }}
                     onSubmit={async (e) => {
                         e.preventDefault()
                         const msgInput = document.querySelector('[data-name="content"]')
@@ -1011,11 +1058,7 @@ export function ChatComponent({ groups, currentGroupId, user, msgsState, socket,
                         <button type={"submit"} className={chatStyles.messageInputSubmit} ref={messageSubmitRef}>send</button>
                     </div>
 
-                    <div className={chatStyles.messageTextContainer} data-length="0" data-overflow=""
-                        onClick={(e) => {
-                            messageInputRef.current.focus()
-                        }}
-                    >
+                    <div className={chatStyles.messageTextContainer} data-length="0" data-overflow="">
                         <div className={chatStyles.contentEditableMessageAreaContainer}>
                             <div data-name={'content'} className={chatStyles.contentEditableMessageArea} ref={messageInputRef} contentEditable={true} role="textbox" data-placeholder={`Message ${currentGroup.members.length == 2 ? '@' : ''}${currentGroup.name}`}
                                 onPaste={(e) => {
@@ -1072,8 +1115,10 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
     const [contextMenuData, setContextMenuData] = ctxMenuData
 
     const messageEditDivRef = useRef(null)
-
     const [messageEdit, setMessageEdit] = useState(false) // if message is being edited currently
+
+    const [messageEditOverflow, setMessageEditOverflow] = useReferredState(false) // false, warn, error
+    const [messageEditLength, setMessageEditLength] = useReferredState(0) // length of message when overflowing
 
     useEffect(() => {
         if (messageEdit) {
@@ -1121,6 +1166,19 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
         setContextMenu(contextType)
         setContextMenuPos({ x, y })
         setContextMenuData({ user, target: mainTarget })
+    }
+    function handleMessageEdit(message) {
+        const newText = messageEditDivRef.current.innerText.trim()
+        setMessageEdit(false)
+        if (newText.length > MAX_MESSAGE_LEN) return setNotificationState({ state: 'error', data: { message: `Message is too long. Max length is ${MAX_MESSAGE_LEN} characters.` } })
+        else if (newText.length == 0) return setNotificationState({ state: 'error', data: { message: 'Message cannot be empty.' } })
+        else if (message.message.content == newText) return
+        else {
+            socket.emit('messageEdit-server', { groupId: currentGroup.id, messageId: message.id, newMessage: newText, accessToken: jsCookie.get('accessToken') }, (res) => {
+                if (!res) console.log('error, unable to edit message')
+                setNotificationState({ state: 'warning', data: { message: 'Message Edited' } })
+            })
+        }
     }
 
     return (
@@ -1171,24 +1229,55 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                             ) :
                                 <div>
                                     <div className={chatStyles.messageContentEditable} contentEditable data-message-content ref={messageEditDivRef} suppressContentEditableWarning={true}
-                                    // onInput={(e) => { // TODO: FIX THIS, UNABLE TO GET PROPER CARET POSITION WITH CONTENTEDITABLE BECAUSE MULTIPLE NODES CAN BE CREATED
-                                    //     const caretPos = window.getSelection().anchorOffset
-                                    //     const caretEl = window.getSelection().anchorNode
+                                        data-length={messageEditLength}
+                                        data-overflow={messageEditOverflow}
+                                        // onInput={(e) => { // TODO: FIX THIS, UNABLE TO GET PROPER CARET POSITION WITH CONTENTEDITABLE BECAUSE MULTIPLE NODES CAN BE CREATED
+                                        //     const caretPos = window.getSelection().anchorOffset
+                                        //     const caretEl = window.getSelection().anchorNode
 
-                                    //     // format text
-                                    //     const text = e.target.innerText
-                                    //     const formattedText = formatMessageInput(text, 100)
-                                    //     e.target.innerHTML = formattedText
-                                    //     // set cursor to last known position
-                                    //     const range = document.createRange()
-                                    //     const sel = window.getSelection()
+                                        //     // format text
+                                        //     const text = e.target.innerText
+                                        //     const formattedText = formatMessageInput(text, 100)
+                                        //     e.target.innerHTML = formattedText
+                                        //     // set cursor to last known position
+                                        //     const range = document.createRange()
+                                        //     const sel = window.getSelection()
 
-                                    //     range.setStart(caretEl, caretPos)
-                                    //     range.collapse(true)
+                                        //     range.setStart(caretEl, caretPos)
+                                        //     range.collapse(true)
 
-                                    //     sel.removeAllRanges()
-                                    //     sel.addRange(range)
-                                    // }}
+                                        //     sel.removeAllRanges()
+                                        //     sel.addRange(range)
+                                        // }}
+
+                                        onPaste={(e) => {
+                                            e.preventDefault()
+                                            const text = e.clipboardData.getData('text/plain')
+                                            document.execCommand('insertText', false, text)
+                                            e.target.scrollTop = e.target.scrollHeight * 1000
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key == 'Escape') {
+                                                setMessageEdit(false)
+                                            }
+                                            else if (e.key == 'Enter' && !e.shiftKey) {
+                                                e.preventDefault()
+                                                handleMessageEdit(message)
+                                            }
+                                        }}
+                                        onInput={(e) => {
+                                            console.log(e.target.innerText.length)
+                                            if (e.target.innerText.length > MAX_MESSAGE_LEN) {
+                                                setMessageEditOverflow('error')
+                                                setMessageEditLength(e.target.innerText.length)
+                                            } else if (e.target.innerText.length > MAX_MESSAGE_LEN - 500) {
+                                                setMessageEditOverflow('warn')
+                                                setMessageEditLength(e.target.innerText.length)
+                                            } else {
+                                                setMessageEditOverflow(false)
+                                                setMessageEditLength('')
+                                            }
+                                        }}
                                     >
                                         {message.message.content}
                                     </div>
@@ -1206,14 +1295,8 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                         &#8226;
                                         <div>
                                             &nbsp;
-                                            <kbd onClick={() => {
-                                                const newText = messageEditDivRef.current.innerText
-                                                setMessageEdit(false)
-                                                if (message.message.content == newText) return
-                                                socket.emit('messageEdit-server', { groupId: currentGroup.id, messageId: message.id, newMessage: newText, accessToken: jsCookie.get('accessToken') }, (res) => {
-                                                    if (!res) console.log('error, unable to edit message')
-                                                    setNotificationState({ state: 'warning', data: { message: 'Message Edited' } })
-                                                })
+                                            <kbd onClick={(e) => {
+                                                handleMessageEdit(message)
                                             }}>
                                                 enter
                                             </kbd>
@@ -1380,7 +1463,6 @@ export function SystemMessage({ message, user, currentGroup, socket, ctxMenu, ct
         </div>
     )
 }
-
 // Extra
 export function NoGroupSelected() {
     return (

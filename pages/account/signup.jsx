@@ -55,7 +55,7 @@ export default function SignUp({ csrfToken }) {
     const [loading, setLoading] = useState(false);
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow:'auto' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
             <Head>
                 <title>Sign Up</title>
             </Head>
@@ -85,23 +85,26 @@ export default function SignUp({ csrfToken }) {
                                 }
                             })
 
-                            if (data.password !== data.confirm_password && !err) {
-                                setError('Passwords do not match');
-                                changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
-                            }
-                            else if (!handleSubmit(data.password) && !err) {
-                                setError('Password must match requirements below');
-                                changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
+                            if ((data.username.length < 5 || data.username.length > 15) && !err) {
+                                setError('Username must be between 5 and 15 characters');
+                                changeDataState(document.querySelector(`[name="username"]`), 'error');
+                                return setLoading(false)
                             }
                             else if (!validateEmail(data.email) && !err) {
                                 setError('Email is not valid');
                                 changeDataState(document.querySelector(`[name="email"]`), 'error');
+                                return setLoading(false)
                             }
-                            else if ((data.username.length < 5 || data.username.length > 15) && !err) {
-                                setError('Username must be between 5 and 15 characters');
-                                changeDataState(document.querySelector(`[name="username"]`), 'error');
+                            else if (!handleSubmit(data.password) && !err) {
+                                setError('Password must match requirements below');
+                                changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
+                                return setLoading(false)
                             }
-                            if (err) return setLoading(false)
+                            else if (data.password !== data.confirm_password && !err) {
+                                setError('Passwords do not match');
+                                changeDataState([document.querySelector(`[name="password"]`), document.querySelector(`[name="confirm_password"]`)], 'error');
+                                return setLoading(false)
+                            }
 
                             // send data to server to create account and wait for response with user access and refresh token
                             setTimeout(async () => {
@@ -111,7 +114,7 @@ export default function SignUp({ csrfToken }) {
                                         'Content-Type': 'application/json'
                                     }
                                 }).then(res => res.text())
-                                data.ip = ip;
+                                data.ip = ip ? ip : null;
                                 const res = await fetch('/api/v1/auth/account/signup', {
                                     method: 'POST',
                                     headers: {
@@ -139,9 +142,6 @@ export default function SignUp({ csrfToken }) {
                                 }
                             }, 300);
                         }, 700);
-
-
-
                     }
                 }>
                     {/* check password requirements on submit as well */}
@@ -153,7 +153,6 @@ export default function SignUp({ csrfToken }) {
                         <ErrorMessage error={error} />
                     </div>
                     <div className={styles.form_helpers}>
-                        <p></p>
                         <p>Already have an account? <a href="/account/signin" className={styles.link}>Sign In</a></p>
                     </div>
                     <Button loading={loading} type={'submit'} name={"signin-submit"} innerText={'Sign Up'} className={styles.submit} />

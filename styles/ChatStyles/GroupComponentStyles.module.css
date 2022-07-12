@@ -191,11 +191,19 @@
     width: 100%;
 }
 
+.groupTitleContainer {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
 .groupTitle {
     justify-self: center;
     height: fit-content;
-    margin: 0 0 0 13px;
+    margin: 2px 0 0 13px;
     min-width: max-content;
+}
+.groupTitleContainer > svg {
+    color: rgb(233, 189, 78);
 }
 
 .numOfMembers {

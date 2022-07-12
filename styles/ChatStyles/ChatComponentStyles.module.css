@@ -28,6 +28,7 @@
 .messageInputForm {
     display: flex;
     position: relative;
+    cursor: text;
     background-color: #1e5a64;
     border-radius: 4px;
     padding: 6px 0px;
@@ -230,7 +231,7 @@
     display: flex;
     position: relative;
     flex-direction: column;
-    padding: 20px 15px;
+    padding: 6px 10px 15px 10px;
     width: 100%;
     overflow-x: auto;
     overflow-y: auto;
@@ -304,18 +305,21 @@
 /* Regular Messages */
 .message {
     position: relative;
-    width: 80%;
+    width: 100%;
     min-width: min-content;
 
     display: flex;
     flex-direction: row;
     align-items: center;
     margin-top: 20px;
-    padding: 12px 14px 14px 14px;
-    transition: opacity 120ms ease-in-out;
+    padding: 8px 10px 6px 10px;
+
+    transition: 100ms ease transform;
 }
 .message:hover {
-    opacity: 0.95;
+    background-color: hsl(191, 85%, 12%);
+    box-shadow: 0 0 20px 1px #062b31;
+    transform: scale(1.005);
 }
 
 .messageHeader {
@@ -341,12 +345,6 @@
     width: 100%;
 }
 
-.messageContentContainer {
-    max-height: 300px;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
 .messageIcon {
     width: 50px;
     height: 50px;
@@ -367,10 +365,16 @@
     white-space: pre-wrap;
     word-break: break-all;
 
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+
     font-size: 15px;
     line-height: 22px;
 }
-
+.messageContentContainer {
+    position: relative;
+}
 .messageContentEditable {
     background-color: rgba(9, 56, 67, 0.956);
     border-radius: 6px;
@@ -384,6 +388,20 @@
 
     word-break: break-all;
     white-space: pre-wrap;
+}
+.messageContentEditable::after {
+    content: attr(data-length);
+    position: absolute;
+    right: 12px;
+    bottom: 30px;
+    font-size: 15px;
+    font-weight: bold;
+}
+.messageContentEditable[data-overflow="warn"]::after {
+    color: var(--color-warning-dark);
+}
+.messageContentEditable[data-overflow="error"]::after {
+    color: var(--color-error-dark);
 }
 .messageContentEditable mkdn {
     opacity: 0.7;
@@ -468,23 +486,41 @@
 
 .message[data-sender="true"]+.message[data-sender="true"],
 .message[data-sender="false"]+.message[data-sender="false"] {
-    margin-top: 6px;
+    margin-top: 0px;
 }
 
 /* induvidual message bubble styles, based on author */
 .message[data-sender="true"] {
     /* also make message bkg color slightly diff than not sender */
     align-self: flex-end;
-    border-radius: 14px 14px 1px 14px;
     color: #a5e4ee;
-    background-color: hsla(191, 45%, 40%, 0.902);
-    margin-left: auto;
+    /* background-color: hsl(191, 45%, 40%); */
+    /* margin-left: auto; */
 }
 
 .message[data-sender="false"] {
     align-self: flex-start;
-    border-radius: 14px 14px 14px 1px;
     color: #93d5df;
-    background-color: #25616fe6;
-    margin-right: auto;
+    /* background-color: hsl(191, 50%, 29%); */
+    /* margin-right: auto; */
+}
+
+/* not highlighting when message is given class */
+.message.highlight {
+    animation: highlight-message 3s cubic-bezier(1, 0.1, 0.39, 0.75) 0s 1 forwards;
+    border-radius: 6px;
+}
+@keyframes highlight-message {
+    0% {
+        background-color: hsl(191, 60%, 65%);
+    }
+    50% {
+        background-color: hsl(191, 47%, 60%);
+    }
+    99% {
+        background-color: hsl(189, 65%, 20%);
+    }
+    /* 100% {
+        background-color: transparent;
+    } */
 }

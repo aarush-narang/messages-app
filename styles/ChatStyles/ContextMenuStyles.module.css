@@ -3,7 +3,8 @@
     z-index: 9999;
 
     width: 200px;
-    background-color: hsl(190, 74%, 13%);
+    background-color: hsl(195, 44%, 23%);
+    border: 1px solid hsl(195, 54%, 30%);
     border-radius: 5px;
     padding: 2px;
 }

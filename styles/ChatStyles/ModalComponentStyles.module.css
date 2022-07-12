@@ -277,11 +277,24 @@
     border-radius: 50%;
     aspect-ratio: 1;
 }
+.modalViewMembersItemName {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.modalViewMembersItemName > svg {
+    margin: 0 6px 0 4px;
+    color: gold;
+}
 .modalViewMembersItemName > b[data-contexttype] {
     text-decoration: underline;
 }
 .modalViewMembersItemMemberStatus {
     font-size: small;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
 }
 
 /* modal inputs */
