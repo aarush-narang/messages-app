@@ -81,6 +81,7 @@
     font-weight: bold;
     margin: 3px 0 5px 0;
     text-align: center;
+    max-width: 350px;
 }
 
 /* Spinner */
@@ -116,6 +117,7 @@
     width: 100%;
     height: 100%;
 }
+
 .selectedContainer:not(:empty) {
     display: flex;
     flex: 1;
@@ -128,6 +130,7 @@
     overflow-y: auto;
     overflow-x: auto;
 }
+
 .selectedItem {
     display: flex;
     padding: 4px 4px 4px 8px;
@@ -135,6 +138,7 @@
     border-radius: 3px;
     background-color: hsl(185, 100%, 18%);
 }
+
 .selectedItemRemoveIcon {
     cursor: pointer;
     font-family: var(--symbols-font-family);
@@ -150,6 +154,7 @@
     width: 100%;
     height: 100%;
 }
+
 .multiSelectInputSearch {
     border: none;
     outline: none;
@@ -161,12 +166,14 @@
     color: var(--font-color);
     background-color: hsl(185, 100%, 8%);
 }
+
 .multiSelectInputSearch::placeholder {
     opacity: 0.6;
     color: var(--font-color);
     font-family: Urbanist;
     max-width: 80%;
 }
+
 .multiSelectInputSearchClearBtn {
     cursor: pointer;
     font-family: var(--symbols-font-family);
@@ -175,7 +182,8 @@
     position: absolute;
     right: 10px;
 }
-.selectedContainer:not(:empty) ~ .multiSelectInputSearchContainer > .multiSelectInputSearch {
+
+.selectedContainer:not(:empty)~.multiSelectInputSearchContainer>.multiSelectInputSearch {
     border-radius: 0;
 }
 
@@ -195,6 +203,7 @@
     gap: 2px;
     border-radius: 0 0 5px 5px;
 }
+
 .optionsContainer:empty::after {
     content: "No results.";
     top: 0;
@@ -204,6 +213,7 @@
     padding: 12px 0;
     font-size: 20px;
 }
+
 .optionContainer {
     display: flex;
     flex-direction: row;
@@ -219,15 +229,18 @@
     transition: 100ms ease;
     background-color: hsl(185, 100%, 12%);
 }
+
 .optionContainer:hover {
     background-color: hsl(185, 100%, 16%);
 }
+
 .optionInfo {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
 }
+
 .optionIcon {
     display: flex;
     align-items: center;
@@ -248,6 +261,7 @@
     left: 0;
     margin: 0;
 }
+
 .customCheckboxContainer {
     background-color: hsl(185, 100%, 6%);
     width: 24px;
@@ -255,6 +269,7 @@
     vertical-align: middle;
     border-radius: 4px;
 }
+
 .customCheckboxIcon {
     font-family: var(--symbols-font-family);
     color: var(--font-color);

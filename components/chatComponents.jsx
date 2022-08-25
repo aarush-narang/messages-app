@@ -1266,7 +1266,6 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                                             }
                                         }}
                                         onInput={(e) => {
-                                            console.log(e.target.innerText.length)
                                             if (e.target.innerText.length > MAX_MESSAGE_LEN) {
                                                 setMessageEditOverflow('error')
                                                 setMessageEditLength(e.target.innerText.length)

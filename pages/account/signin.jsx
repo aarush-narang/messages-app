@@ -50,14 +50,9 @@ export default function SignIn({ csrfToken }) {
                             }
 
                             if (error.length > 0) return; // prevents submit spam and redeces db calls
-                            const ip = await fetch('https://api.ipify.org', {
-                                method: 'GET',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                }
-                            }).then(res => res.text()).catch(() => null)
+                            const ip = await fetch('https://api.ipify.org').then(res => res.text()).catch(() => null)
                             if(!ip) {
-                                setError('Please enable tracking in your browser in order to log in.');
+                                setError('Oops, there was an error. Please try again later. (Your adblocker might be causing this)');
                                 changeDataState(e.target[0], 'error');
                                 changeDataState(e.target[1], 'error');
                                 return setLoading(false);
