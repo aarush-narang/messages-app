@@ -5,8 +5,8 @@ import { generateAccessToken, generateRefreshToken } from "../../../../../lib/he
 
 // import IPData from "ipdata";
 import crypto from 'crypto'
-import getConfig from 'next/config';
-const { serverRuntimeConfig } = getConfig();
+// import getConfig from 'next/config';
+// const { serverRuntimeConfig } = getConfig();
 
 /**
  * @param {Request} req 
