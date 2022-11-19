@@ -968,6 +968,7 @@ const ioHandler = (req, res) => {
         res.socket.server.io = io
     } else {
         console.log('socket.io already running')
+        console.log(res.socket.server.io)
     }
     res.end()
 }
