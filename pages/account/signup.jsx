@@ -108,13 +108,15 @@ export default function SignUp({ csrfToken }) {
 
                             // send data to server to create account and wait for response with user access and refresh token
                             setTimeout(async () => {
-                                const ip = await fetch('https://api.ipify.org', {
-                                    method: 'GET',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    }
-                                }).then(res => res.text())
-                                data.ip = ip ? ip : null;
+                                // const ip = await fetch('https://api.ipify.org', {
+                                //     method: 'GET',
+                                //     headers: {
+                                //         'Content-Type': 'application/json'
+                                //     }
+                                // }).then(res => res.text())
+                                // data.ip = ip ? ip : null;
+                                data.ip = '0.0.0.0';
+                                
                                 const res = await fetch('/api/v1/auth/account/signup', {
                                     method: 'POST',
                                     headers: {

@@ -50,14 +50,15 @@ export default function SignIn({ csrfToken }) {
                             }
 
                             if (error.length > 0) return; // prevents submit spam and redeces db calls
-                            const ip = await fetch('https://api.ipify.org').then(res => res.text()).catch(() => null)
-                            if(!ip) {
-                                setError('Oops, there was an error. Please try again later. (Your adblocker might be causing this)');
-                                changeDataState(e.target[0], 'error');
-                                changeDataState(e.target[1], 'error');
-                                return setLoading(false);
-                            }
+                            // const ip = await fetch('https://api.ipify.org').then(res => res.text()).catch(() => null)
+                            // if(!ip) {
+                            //     setError('Oops, there was an error. Please try again later. (Your adblocker might be causing this)');
+                            //     changeDataState(e.target[0], 'error');
+                            //     changeDataState(e.target[1], 'error');
+                            //     return setLoading(false);
+                            // }
                             data.ip = ip;
+                            data.ip = '0.0.0.0';
                             const res = await fetch('/api/v1/auth/account/signin', {
                                 method: 'POST',
                                 headers: {
