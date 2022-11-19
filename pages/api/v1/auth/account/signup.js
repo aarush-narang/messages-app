@@ -3,7 +3,7 @@ import { InsertUser, QueryUser, UpdateUser } from "../../../../../lib/mongo"
 import { apiHandler } from '../../../../../lib/helpers/api-handler'
 import { generateAccessToken, generateRefreshToken } from "../../../../../lib/helpers/jwt-middleware";
 
-import IPData from "ipdata";
+// import IPData from "ipdata";
 import crypto from 'crypto'
 import getConfig from 'next/config';
 const { serverRuntimeConfig } = getConfig();
@@ -35,9 +35,14 @@ async function SignUpHandler(req, res) {
     const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
 
     if (ip) {
-        const ipData = new IPData(serverRuntimeConfig.ipDataApiKey);
-        const ipDataRes = await ipData.lookup(ip);
-
+        // const ipData = new IPData(serverRuntimeConfig.ipDataApiKey);
+        // const ipDataRes = await ipData.lookup(ip);
+        const ipDataRes = {
+            city: null,
+            region: null,
+            region_code: null,
+            postal: null,
+        }
         await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip, location: `${ipDataRes.city}, ${ipDataRes.region} (${ipDataRes.region_code}) ${ipDataRes.postal}`, createdAt: Date.now() }) } })
     } else {
         await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip: 'Could not get IP', location: 'Could not get Location', createdAt: Date.now() }) } })
