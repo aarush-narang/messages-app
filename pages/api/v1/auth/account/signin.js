@@ -1,11 +1,11 @@
 import { QueryUser, UpdateUser } from "../../../../../lib/mongo"
 import { apiHandler } from '../../../../../lib/helpers/api-handler'
 import { generateAccessToken, generateRefreshToken } from "../../../../../lib/helpers/jwt-middleware";
-import IPData from "ipdata";
+// import IPData from "ipdata";
 
 import crypto from 'crypto'
-import getConfig from 'next/config';
-const { serverRuntimeConfig } = getConfig();
+// import getConfig from 'next/config';
+// const { serverRuntimeConfig } = getConfig();
 
 
 /**
@@ -28,8 +28,15 @@ async function SignInHandler(req, res) {
     // when user logs in, look for their current ip in previous sessions and restore it if it exists
     const refreshTokens = user.refreshTokens ? user.refreshTokens : [];
 
-    const ipData = new IPData(serverRuntimeConfig.ipDataApiKey);
-    const ipDataRes = await ipData.lookup(ip);
+    // const ipData = new IPData(serverRuntimeConfig.ipDataApiKey);
+    // const ipDataRes = await ipData.lookup(ip);
+
+    const ipDataRes = {
+        city: null,
+        region: null,
+        region_code: null,
+        postal: null,
+    }
 
     await UpdateUser({ user: { uid: user.uid, token: user.token }, newData: { refreshTokens: refreshTokens.concat({ refreshToken, ip, location: `${ipDataRes.city}, ${ipDataRes.region} (${ipDataRes.region_code}) ${ipDataRes.postal}`, createdAt: Date.now() }) } })
 
