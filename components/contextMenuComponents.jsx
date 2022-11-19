@@ -91,7 +91,7 @@ export function MessageContextMenu({ group, user, data, socket, msgsState, setNo
 
     // Message Data
     const messageContent = message.message.content
-    const messageLink = `http://localhost:3000/groups/${groupID}/${messageID}`
+    const messageLink = `${window.location.origin}/groups/${groupID}/${messageID}`
 
     const author = user.uid == message.author.uid
 

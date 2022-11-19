@@ -14,7 +14,7 @@ export function HomeHeader({ title = '', signedIn = false, csrfToken, user }) {
                 <div className={headerStyles.headerButtons}>
                     <AccountDropdown signOut={async () => {
                         const res = await useRefetchToken(async () => {
-                            return await fetch('http://localhost:3000/api/v1/auth/account/signout', {
+                            return await fetch('/api/v1/auth/account/signout', {
                                 method: 'POST',
                                 headers: {
                                     'Authorization': 'Bearer ' + Cookies.get('accessToken'),
@@ -26,6 +26,7 @@ export function HomeHeader({ title = '', signedIn = false, csrfToken, user }) {
                                 })
                             }).catch(err => console.log(err))
                         })
+                        console.log(res);
                         if (res.status === 200) {
                             Cookies.set('accessToken', 'deleted', { expires: 0 })
                             Cookies.set('refreshToken', 'deleted', { expires: 0 })

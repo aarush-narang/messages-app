@@ -63,7 +63,7 @@ export function useThrottle(cb, delay = 1000) {
 export async function useRefetchToken(callback) { // callback is a function that returns a fetch response
     const res = await callback()
     if (res.status !== 200) {
-        const newToken = await fetch('http://localhost:3000/api/v1/auth/account/token', { // refresh token
+        const newToken = await fetch('/api/v1/auth/account/token', { // refresh token
             method: 'GET',
             headers: {
                 Authorization: 'Bearer ' + Cookies.get('refreshToken'),
