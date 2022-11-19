@@ -104,17 +104,7 @@ export function HomeComponent({ data, csrfToken }) {
                             'Authorization': `Bearer ${jsCookie.get('accessToken')}`
                         }
                     }).finally(() => {
-                        const socket = io('/api/v1/socket/socket', {
-                            path: '/api/v1/socket/socket',
-                            transports: ['websocket'],
-                            query: {
-                                accessToken: jsCookie.get('accessToken')
-                            },
-                            reconnection: true,
-                            reconnectionDelay: 1000,
-                            reconnectionDelayMax: 5000,
-                            reconnectionAttempts: Infinity,
-                        })
+                        const socket = io()
                         setSocket(socket)
                         socket.on('connect', () => {
                             // loaded
