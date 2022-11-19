@@ -57,7 +57,7 @@ export default function SignIn({ csrfToken }) {
                             //     changeDataState(e.target[1], 'error');
                             //     return setLoading(false);
                             // }
-                            data.ip = ip;
+                            // data.ip = ip;
                             data.ip = '0.0.0.0';
                             const res = await fetch('/api/v1/auth/account/signin', {
                                 method: 'POST',
