@@ -7,6 +7,7 @@ import crypto from 'crypto'
 import getConfig from 'next/config';
 const { serverRuntimeConfig } = getConfig();
 
+
 /**
  * @param {Request} req 
  * @param {Response} res 
