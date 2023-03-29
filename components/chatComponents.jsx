@@ -1308,7 +1308,7 @@ export function Message({ message, user, currentGroup, socket, ctxMenu, ctxMenuP
                     </div>
                     <div className={fileStyles.messageFiles}>
                         {
-                            message.message.attachments.map((fileInfo, i) => {
+                            message.message.attachments?.map((fileInfo, i) => {
                                 const data = Buffer.isBuffer(fileInfo.data) ? fileInfo.data.toString('base64') : fileInfo.data
                                 const fileSize = data ? calculateFileSize(data) : 0
                                 const name = fileInfo.name
