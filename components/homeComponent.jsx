@@ -104,14 +104,21 @@ export function HomeComponent({ data, csrfToken }) {
                             'Authorization': `Bearer ${jsCookie.get('accessToken')}`
                         }
                     }).finally(() => {
+                        // const socket = io({
+                        //     reconnectionDelay: 1000,
+                        //     reconnection: true,
+                        //     reconnectionAttemps: 10,
+                        //     transports: ['websocket'],
+                        //     agent: false,
+                        //     upgrade: false,
+                        //     rejectUnauthorized: false
+                        // })
                         const socket = io({
                             reconnectionDelay: 1000,
                             reconnection: true,
                             reconnectionAttemps: 10,
-                            transports: ['websocket'],
                             agent: false,
                             upgrade: false,
-                            rejectUnauthorized: false
                         })
                         setSocket(socket)
                         socket.on('connect', () => {

@@ -107,9 +107,9 @@ const ioHandler = (req, res) => {
                         }
 
                         // replace friend request user ids with user objects
-                        const current = await replaceFriendRequestIDsWithObject(dbuser.friends.current)
-                        const incoming = await replaceFriendRequestIDsWithObject(dbuser.friends.incoming)
-                        const outgoing = await replaceFriendRequestIDsWithObject(dbuser.friends.outgoing)
+                        const current = await replaceFriendRequestIDsWithObject(dbuser.friends.current || [])
+                        const incoming = await replaceFriendRequestIDsWithObject(dbuser.friends.incoming || [])
+                        const outgoing = await replaceFriendRequestIDsWithObject(dbuser.friends.outgoing || [])
 
                         userInfo.friends = {
                             current,
@@ -124,7 +124,7 @@ const ioHandler = (req, res) => {
                     cb(null)
                 }
             })
-            socket.on('currentGroupChange-server', async (data, cb) => { // when current group changes, send back messages data (non-stale)
+            socket.on('currentGroupChange-server || []', async (data, cb) => { // when current group changes, send back messages data (non-stale)
                 try {
                     const token = data.accessToken
                     const user = decodeJWT(token)
@@ -318,69 +318,69 @@ const ioHandler = (req, res) => {
                         const friend = await QueryUser({ user: friendUser })
                         const sender = await QueryUser({ user: { token: user.token } })
 
-                        if (friend) {
-                            if (sender.friends.outgoing.includes(friend.uid)) {
+                        if (friend && sender) {
+                            if (sender.friends.outgoing?.includes(friend.uid)) {
                                 cb({ error: `You already have a request outgoing with @${friend.username}!` })
-                            } else if (sender.friends.current.includes(friend.uid)) {
+                            } else if (sender.friends.current?.includes(friend.uid)) {
                                 cb({ error: `You are already friends with @${friend.username}!` })
-                            } else if (sender.friends.incoming.includes(friend.uid)) {
+                            } else if (sender.friends.incoming?.includes(friend.uid)) {
                                 const newDataSender = {
-                                    current: sender.friends.current.concat([friend.uid]),
-                                    outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
-                                    incoming: sender.friends.incoming.filter(uid => uid != friend.uid)
+                                    current: sender.friends.current?.concat([friend.uid]),
+                                    outgoing: sender.friends.outgoing?.filter(uid => uid != friend.uid),
+                                    incoming: sender.friends.incoming?.filter(uid => uid != friend.uid)
                                 }
                                 const newDataFriend = {
-                                    current: friend.friends.current.concat([sender.uid]),
-                                    outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
-                                    incoming: friend.friends.incoming.filter(uid => uid != sender.uid)
+                                    current: friend.friends.current?.concat([sender.uid]),
+                                    outgoing: friend.friends.outgoing?.filter(uid => uid != sender.uid),
+                                    incoming: friend.friends.incoming?.filter(uid => uid != sender.uid)
                                 }
 
                                 await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
                                 await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
 
                                 const newDataSenderObject = {
-                                    current: await replaceFriendRequestIDsWithObject(newDataSender.current),
-                                    outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
-                                    incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming)
+                                    current: await replaceFriendRequestIDsWithObject(newDataSender.current || []),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing || []),
+                                    incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming || [])
                                 }
                                 const newDataFriendObject = {
-                                    current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
-                                    outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
-                                    incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming)
+                                    current: await replaceFriendRequestIDsWithObject(newDataFriend.current || []),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing || []),
+                                    incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming || [])
                                 }
 
                                 io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
                                 io.in(friend.uid).emit('friendRequest-client', { data: newDataFriendObject })
 
                                 cb({ success: `You are now friends with @${friend.username}!` })
-                            } else if (friend.friends.incoming.length > MAX_INCOMING_FRIEND_REQUESTS) {
+                            } else if (friend.friends.incoming?.length > MAX_INCOMING_FRIEND_REQUESTS) {
                                 cb({ error: `@${friend.username} has too many incoming friend requests` })
-                            } else if (sender.friends.outgoing.length > MAX_OUTGOING_FRIEND_REQUESTS) {
+                            } else if (sender.friends.outgoing?.length > MAX_OUTGOING_FRIEND_REQUESTS) {
                                 cb({ error: `You have too many outgoing friend requests.` })
                             } else {
                                 const newDataSender = {
                                     current: sender.friends.current,
-                                    outgoing: sender.friends.outgoing.concat([friend.uid]),
+                                    outgoing: sender.friends.outgoing?.concat([friend.uid]),
                                     incoming: sender.friends.incoming
                                 }
                                 const newDataFriend = {
                                     current: friend.friends.current,
                                     outgoing: friend.friends.outgoing,
-                                    incoming: friend.friends.incoming.concat([sender.uid])
+                                    incoming: friend.friends.incoming?.concat([sender.uid])
                                 }
 
                                 await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
                                 await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
 
                                 const newDataSenderObject = {
-                                    current: await replaceFriendRequestIDsWithObject(newDataSender.current),
-                                    outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
-                                    incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming)
+                                    current: await replaceFriendRequestIDsWithObject(newDataSender.current || []),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing || []),
+                                    incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming || [])
                                 }
                                 const newDataFriendObject = {
-                                    current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
-                                    outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
-                                    incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming)
+                                    current: await replaceFriendRequestIDsWithObject(newDataFriend.current || []),
+                                    outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing || []),
+                                    incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming || [])
                                 }
 
                                 io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
@@ -411,28 +411,28 @@ const ioHandler = (req, res) => {
 
                         if (status.state == 'incoming' && status.action == 'accept') {
                             const newDataSender = {
-                                current: sender.friends.current.concat([friend.uid]),
-                                outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
-                                incoming: sender.friends.incoming.filter(uid => uid != friend.uid)
+                                current: sender.friends.current?.concat([friend.uid]),
+                                outgoing: sender.friends.outgoing?.filter(uid => uid != friend.uid),
+                                incoming: sender.friends.incoming?.filter(uid => uid != friend.uid)
                             }
                             const newDataFriend = {
-                                current: friend.friends.current.concat([sender.uid]),
-                                outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
-                                incoming: friend.friends.incoming.filter(uid => uid != sender.uid)
+                                current: friend.friends.current?.concat([sender.uid]),
+                                outgoing: friend.friends.outgoing?.filter(uid => uid != sender.uid),
+                                incoming: friend.friends.incoming?.filter(uid => uid != sender.uid)
                             }
 
                             await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
                             await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
 
                             const newDataSenderObject = {
-                                current: await replaceFriendRequestIDsWithObject(newDataSender.current),
-                                outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
-                                incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming)
+                                current: await replaceFriendRequestIDsWithObject(newDataSender.current || []),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing || []),
+                                incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming || [])
                             }
                             const newDataFriendObject = {
-                                current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
-                                outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
-                                incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming)
+                                current: await replaceFriendRequestIDsWithObject(newDataFriend.current || []),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing || []),
+                                incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming || [])
                             }
 
                             io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
@@ -440,27 +440,27 @@ const ioHandler = (req, res) => {
                         } else if ((status.state == 'incoming' && status.action == 'decline') || (status.state == 'outgoing' && status.action == 'cancel')) {
                             const newDataSender = {
                                 current: sender.friends.current,
-                                outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
-                                incoming: sender.friends.incoming.filter(uid => uid != friend.uid)
+                                outgoing: sender.friends.outgoing?.filter(uid => uid != friend.uid),
+                                incoming: sender.friends.incoming?.filter(uid => uid != friend.uid)
                             }
                             const newDataFriend = {
                                 current: friend.friends.current,
-                                outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
-                                incoming: friend.friends.incoming.filter(uid => uid != sender.uid)
+                                outgoing: friend.friends.outgoing?.filter(uid => uid != sender.uid),
+                                incoming: friend.friends.incoming?.filter(uid => uid != sender.uid)
                             }
 
                             await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
                             await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
 
                             const newDataSenderObject = {
-                                current: await replaceFriendRequestIDsWithObject(newDataSender.current),
-                                outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
-                                incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming)
+                                current: await replaceFriendRequestIDsWithObject(newDataSender.current || []),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing || []),
+                                incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming || [])
                             }
                             const newDataFriendObject = {
-                                current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
-                                outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
-                                incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming)
+                                current: await replaceFriendRequestIDsWithObject(newDataFriend.current || []),
+                                outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing || []),
+                                incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming || [])
                             }
 
                             io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
@@ -491,28 +491,28 @@ const ioHandler = (req, res) => {
                         const sender = await QueryUser({ user: { token: user.token } })
 
                         const newDataSender = {
-                            current: sender.friends.current.filter(uid => uid != friend.uid),
-                            outgoing: sender.friends.outgoing.filter(uid => uid != friend.uid),
-                            incoming: sender.friends.incoming.filter(uid => uid != friend.uid)
+                            current: sender.friends.current?.filter(uid => uid != friend.uid),
+                            outgoing: sender.friends.outgoing?.filter(uid => uid != friend.uid),
+                            incoming: sender.friends.incoming?.filter(uid => uid != friend.uid)
                         }
                         const newDataFriend = {
-                            current: friend.friends.current.filter(uid => uid != sender.uid),
-                            outgoing: friend.friends.outgoing.filter(uid => uid != sender.uid),
-                            incoming: friend.friends.incoming.filter(uid => uid != sender.uid)
+                            current: friend.friends.current?.filter(uid => uid != sender.uid),
+                            outgoing: friend.friends.outgoing?.filter(uid => uid != sender.uid),
+                            incoming: friend.friends.incoming?.filter(uid => uid != sender.uid)
                         }
 
                         await UpdateUser({ user: { token: sender.token }, newData: { friends: newDataSender } })
                         await UpdateUser({ user: { token: friend.token }, newData: { friends: newDataFriend } })
 
                         const newDataSenderObject = {
-                            current: await replaceFriendRequestIDsWithObject(newDataSender.current),
-                            outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing),
-                            incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming)
+                            current: await replaceFriendRequestIDsWithObject(newDataSender.current || []),
+                            outgoing: await replaceFriendRequestIDsWithObject(newDataSender.outgoing || []),
+                            incoming: await replaceFriendRequestIDsWithObject(newDataSender.incoming || [])
                         }
                         const newDataFriendObject = {
-                            current: await replaceFriendRequestIDsWithObject(newDataFriend.current),
-                            outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing),
-                            incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming)
+                            current: await replaceFriendRequestIDsWithObject(newDataFriend.current || []),
+                            outgoing: await replaceFriendRequestIDsWithObject(newDataFriend.outgoing || []),
+                            incoming: await replaceFriendRequestIDsWithObject(newDataFriend.incoming || [])
                         }
 
                         io.in(sender.uid).emit('friendRequest-client', { data: newDataSenderObject })
@@ -962,7 +962,6 @@ const ioHandler = (req, res) => {
                 })
             })
         })
-
 
 
         res.socket.server.io = io
